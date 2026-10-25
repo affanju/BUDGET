@@ -90,6 +90,9 @@ input.amt{width:100px;text-align:right;font-variant-numeric:tabular-nums}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px}
 svg text{fill:var(--muted);font-family:var(--body);font-size:11px}
 tr.now td{background:var(--accent-soft)}
+tr.subt td{font-weight:700;border-bottom:2px solid var(--line)}
+table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
+.mlink{border:0;background:none;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline;text-transform:inherit;letter-spacing:inherit;padding:0}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .3s}}
 </style>
 
@@ -121,6 +124,7 @@ tr.now td{background:var(--accent-soft)}
         <div class="stat"><h3>Cash balance</h3><div class="v" id="sBal"></div></div>
       </div>
     </div>
+    <p class="note" id="soFar" style="margin-top:14px"></p>
   </div>
   <div class="card" data-group="income"></div>
   <div class="card" data-group="expenses"></div>
@@ -149,6 +153,7 @@ tr.now td{background:var(--accent-soft)}
       <label>Amount ($)<input id="txAmt" type="number" step="0.01" min="0" inputmode="decimal" required></label>
       <button class="btn" type="submit">Add</button>
     </form>
+    <p class="note" id="txMsg" style="margin-top:8px" aria-live="polite">Each entry is added to its category's total on every tab.</p>
   </div>
   <div class="card"><div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
     <div class="stat"><h3>Income</h3><div class="v" id="tInc"></div></div>
@@ -167,6 +172,9 @@ tr.now td{background:var(--accent-soft)}
   <p class="note">Forecast comes from your monthly budget. Actual fills in automatically from the monthly tracker.</p>
   <div class="card"><div class="legend" style="margin-bottom:8px"><span><i style="background:var(--line)"></i>Forecast spending</span><span><i style="background:var(--accent)"></i>Actual spending</span><span><i style="background:var(--bad)"></i>Over forecast</span></div><div id="chart"></div></div>
   <div class="card"><div class="scroll" id="yearTable"></div></div>
+  <div class="card"><div class="row" style="margin-bottom:6px"><h2>Year record by category</h2></div>
+    <p class="note" style="margin-bottom:10px">Every category's actual total for each month. Tap a month to see its entries.</p>
+    <div class="scroll" id="recTable"></div></div>
 </section>
 </main>
 
@@ -175,6 +183,8 @@ const F={week:52,fortnight:26,month:12,year:1};
 const FL={week:"Weekly",fortnight:"Fortnightly",month:"Monthly",year:"Yearly"};
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const GROUPS={income:"Monthly income",expenses:"Monthly expenses",savings:"Monthly savings"};
+const TYPE={income:"income",expenses:"expense",savings:"savings"};
+const curLabel=MONTHS[new Date().getMonth()];
 const uid=()=>Math.random().toString(36).slice(2,9);
 const money=new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD",minimumFractionDigits:2});
 const fm=v=>money.format(Math.round(v*100)/100||0);
@@ -216,19 +226,25 @@ function renderGroup(g){
     <td><input class="amt" id="a-${i.id}" type="number" step="0.01" inputmode="decimal" value="${i.amount}" aria-label="Amount"></td>
     <td><select id="f-${i.id}" aria-label="How often">${Object.keys(F).map(k=>`<option value="${k}"${k===i.freq?" selected":""}>${FL[k]}</option>`).join("")}</select></td>
     <td class="calc" data-c="week"></td><td class="calc" data-c="fortnight"></td><td class="calc m" data-c="month"></td><td class="calc" data-c="year"></td>
+    <td class="act" data-a></td><td data-l></td>
     <td><button class="x" data-del="${i.id}" aria-label="Remove ${esc(i.name)}">×</button></td></tr>`).join("");
   box.innerHTML=`<div class="row" style="margin-bottom:10px"><h2>${GROUPS[g]}</h2><button class="btn ghost" data-add="${g}">+ Add item</button></div>
-   ${S[g].length?`<div class="scroll"><table><thead><tr><th>Item</th><th>Amount</th><th>How often</th><th>Weekly</th><th>Fortnightly</th><th>Monthly</th><th>Yearly</th><th></th></tr></thead>
-   <tbody>${rows}</tbody><tfoot><tr><td>Total</td><td></td><td></td><td data-t="week"></td><td data-t="fortnight"></td><td data-t="month"></td><td data-t="year"></td><td></td></tr></tfoot></table></div>`
+   ${S[g].length?`<div class="scroll"><table><thead><tr><th>Item</th><th>Amount</th><th>How often</th><th>Weekly</th><th>Fortnightly</th><th>Monthly</th><th>Yearly</th><th>${g==="income"?"Received":"Spent"} ${curLabel}</th><th>${g==="income"?"Still to come":"Left"} ${curLabel}</th><th></th></tr></thead>
+   <tbody>${rows}</tbody><tfoot><tr><td>Total</td><td></td><td></td><td data-t="week"></td><td data-t="fortnight"></td><td data-t="month"></td><td data-t="year"></td><td data-ta></td><td data-tl></td><td></td></tr></tfoot></table></div>`
    :`<div class="empty">Nothing here yet. Tap “Add item” to add your first ${g==="income"?"income source":g==="savings"?"savings goal":"expense"}.</div>`}`;
   calcGroup(g);
 }
 function calcGroup(g){
   const box=document.querySelector(`[data-group="${g}"]`);
   S[g].forEach(i=>{const tr=box.querySelector(`tr[data-id="${i.id}"]`);if(!tr)return;
-    const y=yearly(i);tr.querySelectorAll("[data-c]").forEach(td=>td.textContent=fm(y/F[td.dataset.c]))});
+    const y=yearly(i);tr.querySelectorAll("[data-c]").forEach(td=>td.textContent=fm(y/F[td.dataset.c]));
+    const a=catActual(TYPE[g],i.name,curMonth);fillLeft(tr.querySelector("[data-a]"),tr.querySelector("[data-l]"),y/12,a,g)});
   const y=groupYear(g);box.querySelectorAll("[data-t]").forEach(td=>td.textContent=fm(y/F[td.dataset.t]));
+  const ta=sumType(monthTx(curMonth),TYPE[g]);const fa=box.querySelector("[data-ta]");if(fa)fillLeft(fa,box.querySelector("[data-tl]"),y/12,ta,g);
 }
+function catActual(type,name,ym){return S.tx.filter(t=>t.type===type&&t.cat===name&&t.date.slice(0,7)===ym).reduce((a,t)=>a+t.amt,0)}
+function fillLeft(aEl,lEl,bud,act,g){aEl.textContent=fm(act);const left=bud-act;lEl.textContent=fm(left);
+  lEl.className=g==="income"?"":(left<0?"neg":"pos");aEl.className="act"+(g!=="income"&&act>bud?" neg":"")}
 function renderSummary(){
   const d=F[ui.period],inc=groupYear("income")/d,exp=groupYear("expenses")/d,sav=groupYear("savings")/d,bal=inc-exp-sav;
   sInc.textContent=fm(inc);sExp.textContent=fm(exp);sSav.textContent=fm(sav);
@@ -236,13 +252,15 @@ function renderSummary(){
   const p=inc?((exp+sav)/inc*100):0;const shown=Math.min(p,100);
   pct.innerHTML=Math.round(p)+"%<small>of income spent</small>";
   const col=p>100?"var(--bad)":"var(--accent)";
+  {const l=monthTx(curMonth),sp=sumType(l,"expense")+sumType(l,"savings"),bud=(groupYear("expenses")+groupYear("savings"))/12;
+   soFar.innerHTML=`<b>${curLabel} so far:</b> spent ${fm(sp)} of ${fm(bud)} budgeted · received ${fm(sumType(l,"income"))} · <span class="${bud-sp<0?"neg":"pos"}">${fm(bud-sp)} left</span>`}
   donut.style.background=`conic-gradient(${col} 0 ${shown}%, var(--sunk) ${shown}% 100%)`;
   document.querySelectorAll("#sumPeriod button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.p===ui.period));
 }
 document.getElementById("tab-budget").addEventListener("input",e=>{
   const tr=e.target.closest("tr[data-id]");if(!tr)return;const g=tr.closest("[data-group]").dataset.group;
   const it=S[g].find(i=>i.id===tr.dataset.id);
-  if(e.target.classList.contains("name"))it.name=e.target.value;
+  if(e.target.classList.contains("name")){const old=it.name,nw=e.target.value;S.tx.forEach(t=>{if(t.type===TYPE[g]&&t.cat===old)t.cat=nw});it.name=nw}
   else if(e.target.classList.contains("amt"))it.amount=parseFloat(e.target.value)||0;
   else if(e.target.tagName==="SELECT")it.freq=e.target.value;
   calcGroup(g);renderSummary();save();
@@ -290,8 +308,9 @@ function renderTracker(){
 monthEl.addEventListener("change",()=>{if(monthEl.value){ui.month=monthEl.value;renderTracker()}});
 txForm.addEventListener("submit",e=>{e.preventDefault();const amt=parseFloat(txAmt.value);if(!(amt>0)||!txDate.value)return;
   S.tx.push({id:uid(),date:txDate.value,type:txType.value,cat:txCat.value,desc:txDesc.value.trim(),amt});
-  ui.month=txDate.value.slice(0,7);txAmt.value="";txDesc.value="";renderTracker();save();txAmt.focus()});
-txList.addEventListener("click",e=>{const b=e.target.closest("[data-tx]");if(!b)return;S.tx=S.tx.filter(t=>t.id!==b.dataset.tx);renderTracker();save()});
+  ui.month=txDate.value.slice(0,7);txAmt.value="";txDesc.value="";renderAll();save();
+  txMsg.textContent="Added "+fm(amt)+" to "+txCat.value+".";txAmt.focus()});
+txList.addEventListener("click",e=>{const b=e.target.closest("[data-tx]");if(!b)return;S.tx=S.tx.filter(t=>t.id!==b.dataset.tx);renderAll();save()});
 
 /* ---------- year ---------- */
 function renderYear(){
@@ -321,7 +340,30 @@ function renderYear(){
     if(d.ao!=null)s+=`<rect x="${x+1}" y="${y(d.ao)}" width="${bw}" height="${Math.max(0,H-B-y(d.ao))}" rx="2" fill="${d.ao>d.fo?"var(--bad)":"var(--accent)"}"/>`;
     s+=`<text x="${x}" y="${H-6}" text-anchor="middle">${d.mn}</text>`});
   chart.innerHTML=s+"</svg>";
+  renderRecord();
 }
+function renderRecord(){
+  const yr=String(ui.year),ytx=S.tx.filter(t=>t.date.slice(0,4)===yr);
+  const nowY=today.getFullYear(),months=ui.year<nowY?12:ui.year>nowY?0:today.getMonth()+1;
+  const mi=t=>+t.date.slice(5,7)-1;
+  let body="";
+  [["expenses","Expenses"],["savings","Savings"],["income","Income"]].forEach(([g,lbl])=>{
+    const type=TYPE[g],gt=ytx.filter(t=>t.type===type);
+    const names=[...new Set([...S[g].map(i=>i.name),...gt.map(t=>t.cat)])];
+    if(!names.length)return;
+    const sub=Array(12).fill(0);
+    let rows="";
+    names.forEach(n=>{const m=Array(12).fill(0);gt.filter(t=>t.cat===n).forEach(t=>{m[mi(t)]+=t.amt;sub[mi(t)]+=t.amt});
+      const tot=m.reduce((a,b)=>a+b,0);
+      rows+=`<tr><td>${esc(n)}</td>${m.map(v=>`<td class="${v?"":"calc"}">${v?fm(v):"–"}</td>`).join("")}<td><b>${fm(tot)}</b></td><td class="calc">${months?fm(tot/months):"–"}</td></tr>`});
+    const st=sub.reduce((a,b)=>a+b,0);
+    body+=`<tr><td colspan="15" style="padding-top:16px"><span class="pill ${type}">${lbl}</span></td></tr>${rows}
+      <tr class="subt"><td>Total ${lbl.toLowerCase()}</td>${sub.map(v=>`<td>${fm(v)}</td>`).join("")}<td>${fm(st)}</td><td>${months?fm(st/months):"–"}</td></tr>`;
+  });
+  recTable.innerHTML=`<table class="rec"><thead><tr><th>Category</th>${MONTHS.map((m,i)=>`<th><button class="mlink" data-m="${yr}-${pad(i+1)}">${m}</button></th>`).join("")}<th>Year</th><th>Avg/mth</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+recTable.addEventListener("click",e=>{const b=e.target.closest("[data-m]");if(!b)return;ui.month=b.dataset.m;
+  document.querySelector('nav [data-tab="tracker"]').click();window.scrollTo(0,0)});
 yearSel.addEventListener("change",()=>{ui.year=+yearSel.value;renderYear()});
 
 /* ---------- tabs ---------- */

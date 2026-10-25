@@ -5,8 +5,8 @@ A simple personal budget app that runs in any browser. No sign-up, no server, no
 ## What it does
 
 - **Budget** – income, expenses and savings, each shown weekly, fortnightly, monthly and yearly. Enter an amount and how often it's paid; the other columns calculate automatically. The summary shows total income, expenses, savings, cash balance and % of income spent.
-- **Monthly tracker** – log real income, bills and spending by date and category. Shows monthly totals and budget vs actual for each category.
-- **Year forecast** – a January to December table and chart comparing your budget forecast with actual figures from the tracker.
+- **Monthly tracker** – log daily income, bills and spending by date and category. Each entry is added to its category's total everywhere: the Budget tab shows spent and left this month for every item, and the tracker shows budget vs actual.
+- **Year forecast** – a January to December table and chart comparing your budget forecast with actual figures from the tracker, plus a year record of every category's total for each month.
 
 ## Your data
 
