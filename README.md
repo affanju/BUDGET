@@ -5,7 +5,10 @@ A simple personal budget app that runs in any browser. No sign-up, no server, no
 ## What it does
 
 - **Budget** – income, expenses and savings, each shown weekly, fortnightly, monthly and yearly. Enter an amount and how often it's paid; the other columns calculate automatically. The summary shows total income, expenses, savings, cash balance and % of income spent.
-- **Monthly tracker** – log daily income, bills and spending by date and category. Each entry is added to its category's total everywhere: the Budget tab shows spent and left this month for every item, and the tracker shows budget vs actual.
+- **Monthly tracker** – log daily income, bills and spending by date, category and the account it was paid from or into. Entries can be edited or deleted. Each entry is added to its category's total everywhere: the Budget tab shows spent and left this month for every item, and the tracker shows budget vs actual.
+- **Ledger** – every entry for a month in date order, with money in, money out and a running balance for one account or all accounts together. A second running column shows how much of the month's forecast spending is left, and each expense shows what's left in its category. The summary includes a projected end-of-month balance.
+- **Accounts** – add and edit your bank accounts, savings, cash, credit cards and loans. Shows each account's live balance (what's owed and available credit for cards), plus totals for money held, money owed and net balance.
+- **Transfers** – use the "Transfer between accounts" entry type for credit card payments or moving money to savings. Both balances update and it isn't counted as spending.
 - **Year forecast** – a January to December table and chart comparing your budget forecast with actual figures from the tracker, plus a year record of every category's total for each month.
 
 ## Your data

@@ -91,6 +91,20 @@ input.amt{width:100px;text-align:right;font-variant-numeric:tabular-nums}
 svg text{fill:var(--muted);font-family:var(--body);font-size:11px}
 tr.now td{background:var(--accent-soft)}
 tr.subt td{font-weight:700;border-bottom:2px solid var(--line)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.acct-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.acct{display:grid;gap:6px;align-content:start}
+.aname{font-weight:700;font-size:1.05rem;overflow-wrap:anywhere}
+.abal{font:800 1.8rem var(--display);font-variant-numeric:tabular-nums;margin-top:4px}
+.btn.sm{padding:5px 10px;font-size:.8rem}
+td small{display:block;color:var(--muted);font-size:.75rem;font-weight:500}
+td small.neg{color:var(--bad)}
+td.details{white-space:normal;min-width:170px;text-align:left}
+td.acc{text-align:left;white-space:normal;min-width:110px}
+#entryCard{scroll-margin-top:130px}
+.pill.transfer{color:var(--accent)}
+.stats.three{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.acts{white-space:nowrap}
 table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
 .mlink{border:0;background:none;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline;text-transform:inherit;letter-spacing:inherit;padding:0}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .3s}}
@@ -103,6 +117,8 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
   <nav role="tablist">
     <button role="tab" data-tab="budget" aria-selected="true">Budget</button>
     <button role="tab" data-tab="tracker" aria-selected="false">Monthly tracker</button>
+    <button role="tab" data-tab="ledger" aria-selected="false">Ledger</button>
+    <button role="tab" data-tab="accounts" aria-selected="false">Accounts</button>
     <button role="tab" data-tab="year" aria-selected="false">Year forecast</button>
   </nav>
 </div></header>
@@ -143,18 +159,20 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
 <!-- TRACKER -->
 <section class="panel" id="tab-tracker" hidden>
   <div class="row"><h2>Monthly tracker</h2><input type="month" id="month" aria-label="Month"></div>
-  <div class="card">
-    <h3 style="margin-bottom:10px">Add an entry</h3>
+  <div id="trkEntrySlot"><div class="card" id="entryCard">
+    <h3 style="margin-bottom:10px" id="entryTitle">Add an entry</h3>
     <form class="form" id="txForm">
       <label>Date<input type="date" id="txDate" required></label>
-      <label>Type<select id="txType"><option value="expense">Expense</option><option value="income">Income</option><option value="savings">Savings</option></select></label>
-      <label>Category<select id="txCat"></select></label>
+      <label>Type<select id="txType"><option value="expense">Expense</option><option value="income">Income</option><option value="savings">Savings</option><option value="transfer">Transfer between accounts</option></select></label>
+      <label id="lblCat">Category<select id="txCat"></select></label>
+      <label><span id="acctLbl">Paid from</span><select id="txAcct" required></select></label>
+      <label id="lblTo" hidden><span id="toLbl">To account</span><select id="txTo"></select></label>
       <label>Note<input id="txDesc" placeholder="e.g. Woolworths"></label>
       <label>Amount ($)<input id="txAmt" type="number" step="0.01" min="0" inputmode="decimal" required></label>
-      <button class="btn" type="submit">Add</button>
+      <div class="row" style="gap:8px;justify-content:flex-start"><button class="btn" type="submit" id="txSubmit">Add</button><button class="btn ghost" type="button" id="txCancel" hidden>Cancel</button></div>
     </form>
-    <p class="note" id="txMsg" style="margin-top:8px" aria-live="polite">Each entry is added to its category's total on every tab.</p>
-  </div>
+    <p class="note" id="txMsg" style="margin-top:8px" aria-live="polite">Each entry updates its category, its account balance and the ledger.</p>
+  </div></div>
   <div class="card"><div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr))">
     <div class="stat"><h3>Income</h3><div class="v" id="tInc"></div></div>
     <div class="stat"><h3>Expenses</h3><div class="v" id="tExp"></div></div>
@@ -163,6 +181,43 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
   </div></div>
   <div class="card"><div class="row" style="margin-bottom:10px"><h2>Budget vs actual</h2><span class="note" id="tMonthLbl"></span></div><div class="scroll" id="catTable"></div></div>
   <div class="card"><h2 style="margin-bottom:10px">Entries</h2><div class="scroll" id="txList"></div></div>
+</section>
+
+<!-- LEDGER -->
+<section class="panel" id="tab-ledger" hidden>
+  <div class="row"><h2>Ledger</h2>
+    <div class="row" style="gap:8px;justify-content:flex-start"><select id="ledAcct" aria-label="Account"></select><input type="month" id="ledMonth" aria-label="Month"></div></div>
+  <div class="grid2">
+    <div class="card"><h3 style="margin-bottom:10px">Actual balance · <span id="ledScope"></span></h3><div class="stats">
+      <div class="stat"><h3>Opening</h3><div class="v" id="lOpen"></div></div>
+      <div class="stat"><h3>Closing</h3><div class="v" id="lClose"></div></div>
+      <div class="stat"><h3>Money in</h3><div class="v pos" id="lIn"></div></div>
+      <div class="stat"><h3>Money out</h3><div class="v" id="lOut"></div></div>
+    </div></div>
+    <div class="card"><h3 style="margin-bottom:10px">Forecast · <span id="ledMonthLbl"></span></h3><div class="stats">
+      <div class="stat"><h3>Budgeted spending</h3><div class="v" id="fBud"></div></div>
+      <div class="stat"><h3>Remaining from forecast</h3><div class="v" id="fLeft"></div></div>
+      <div class="stat"><h3>Spent so far</h3><div class="v" id="fSpent"></div></div>
+      <div class="stat"><h3>Income still due</h3><div class="v" id="fDue"></div></div>
+    </div><p class="note" id="projLine" style="margin-top:12px"></p></div>
+  </div>
+  <div id="ledEntrySlot"></div>
+  <div class="card"><div class="scroll" id="ledTable"></div></div>
+  <p class="note">Balance is the actual money in the account(s) shown. Budget left is this month's forecast spending minus everything spent so far, across all accounts.</p>
+</section>
+
+<!-- ACCOUNTS -->
+<section class="panel" id="tab-accounts" hidden>
+  <h2>Accounts</h2>
+  <div class="card"><div class="stats three">
+    <div class="stat"><h3>Money in accounts</h3><div class="v" id="aCash"></div></div>
+    <div class="stat"><h3>Owed on cards &amp; loans</h3><div class="v" id="aOwed"></div></div>
+    <div class="stat"><h3>Net balance</h3><div class="v" id="aNet"></div></div>
+  </div></div>
+  <div class="acct-grid" id="acctCards"></div>
+  <div class="card"><div class="row" style="margin-bottom:10px"><h2>Manage accounts</h2><button class="btn ghost" id="addAcct" type="button">+ Add account</button></div>
+    <div class="scroll" id="acctTable"></div>
+    <p class="note" id="acctMsg" style="margin-top:10px" aria-live="polite">Starting balance is what the account held before your first entry. For a credit card or loan, enter what you owe as a minus, e.g. -450. Limit is optional.</p></div>
 </section>
 
 <!-- YEAR -->
@@ -185,6 +240,8 @@ const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov",
 const GROUPS={income:"Monthly income",expenses:"Monthly expenses",savings:"Monthly savings"};
 const TYPE={income:"income",expenses:"expense",savings:"savings"};
 const curLabel=MONTHS[new Date().getMonth()];
+const KINDS={bank:"Bank",savings:"Savings",cash:"Cash",card:"Credit card",loan:"Loan"};
+const isDebt=k=>k==="card"||k==="loan";
 const uid=()=>Math.random().toString(36).slice(2,9);
 const money=new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD",minimumFractionDigits:2});
 const fm=v=>money.format(Math.round(v*100)/100||0);
@@ -198,10 +255,18 @@ function seed(){
     expenses:[it("Rent/mortgage",500),it("Electric",150),it("Gas",225),it("Cell phone",200),it("Groceries",500),it("Fuel",200),it("Car payment",275),it("Credit cards",120),it("Auto insurance",300),it("Water",100),it("Miscellaneous",100),it("Car finance",1325)],
     savings:[],tx:[]};
 }
+function migrate(d){d.savings=d.savings||[];d.tx=d.tx||[];
+  if(!Array.isArray(d.accounts)||!d.accounts.length)d.accounts=[
+    {id:uid(),name:"Everyday account",kind:"bank",opening:0,limit:0},
+    {id:uid(),name:"Credit card",kind:"card",opening:0,limit:0}];
+  const first=d.accounts[0].id;d.tx.forEach(t=>{if(!t.acct)t.acct=first;if(t.to===undefined)t.to=""});
+  return d}
 let S=null;
 try{const r=localStorage.getItem("mmm-budget");if(r)S=JSON.parse(r)}catch(e){}
 if(!S)S=seed();
-let ui={period:"month",month:curMonth,year:today.getFullYear(),tab:"budget"};
+S=migrate(S);
+let ui={period:"month",month:curMonth,year:today.getFullYear(),tab:"budget",ledAcct:""};
+let editing=null;
 
 const yearly=i=>(+i.amount||0)*(F[i.freq]||12);
 const groupYear=g=>S[g].reduce((a,i)=>a+yearly(i),0);
@@ -210,11 +275,8 @@ const groupYear=g=>S[g].reduce((a,i)=>a+yearly(i),0);
 let saveT=null;
 const statusEl=document.getElementById("status");
 function save(){
-  clearTimeout(saveT);statusEl.textContent="Saving…";
-  saveT=setTimeout(async()=>{
-    try{localStorage.setItem("mmm-budget",JSON.stringify(S))}catch(e){}
-    statusEl.textContent="Saved on this device";
-  },600);
+  try{localStorage.setItem("mmm-budget",JSON.stringify(S));statusEl.textContent="Saved on this device"}
+  catch(e){statusEl.textContent="Couldn't save. Export a backup."}
 }
 statusEl.textContent="Saved on this device";
 
@@ -278,11 +340,38 @@ document.getElementById("tab-budget").addEventListener("click",e=>{
 const monthEl=document.getElementById("month");
 function cats(type){const g=type==="income"?"income":type==="savings"?"savings":"expenses";return [...S[g].map(i=>i.name),"Other"]}
 function fillCats(){const t=txType.value,cur=txCat.value;txCat.innerHTML=cats(t).map(c=>`<option>${esc(c)}</option>`).join("");if([...txCat.options].some(o=>o.value===cur))txCat.value=cur}
-txType.addEventListener("change",fillCats);
+txType.addEventListener("change",()=>{fillCats();formMode()});
+function fillAccts(){const opts=S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
+  [txAcct,txTo].forEach(sel=>{const c=sel.value;sel.innerHTML=(sel===txTo?'<option value="">None</option>':"")+opts;
+    if([...sel.options].some(o=>o.value===c))sel.value=c});}
+function formMode(){const t=txType.value;
+  acctLbl.textContent={expense:"Paid from",income:"Paid into",savings:"From account",transfer:"From account"}[t];
+  lblCat.hidden=t==="transfer";lblTo.hidden=!(t==="transfer"||t==="savings");
+  toLbl.textContent=t==="savings"?"Into savings account (optional)":"To account";txTo.required=t==="transfer";}
+const acctName=id=>(S.accounts.find(a=>a.id===id)||{name:"No account"}).name;
+function acctCell(t){return t.to&&(t.type==="transfer"||t.type==="savings")?esc(acctName(t.acct))+" → "+esc(acctName(t.to)):esc(acctName(t.acct))}
+/* money effect of an entry on one account (id) or on all accounts together (id null) */
+function eff(t,id){const a=+t.amt||0,on=x=>id==null||x===id;let v=0;
+  if(t.type==="income"){if(on(t.acct))v+=a}
+  else if(t.type==="expense"){if(on(t.acct))v-=a}
+  else{if(on(t.acct))v-=a;if(t.to&&on(t.to))v+=a}
+  return v}
+function opening(id){return id==null?S.accounts.reduce((s,a)=>s+(+a.opening||0),0):+((S.accounts.find(a=>a.id===id)||{}).opening||0)}
+function balance(id,before){return opening(id)+S.tx.filter(t=>!before||t.date<before).reduce((s,t)=>s+eff(t,id),0)}
+function startEdit(id){const t=S.tx.find(x=>x.id===id);if(!t)return;editing=id;
+  txType.value=t.type;fillCats();fillAccts();formMode();
+  if(t.type!=="transfer"&&![...txCat.options].some(o=>o.value===t.cat))txCat.insertAdjacentHTML("beforeend",`<option>${esc(t.cat)}</option>`);
+  if(t.type!=="transfer")txCat.value=t.cat;
+  txDate.value=t.date;txAcct.value=t.acct;txTo.value=t.to||"";txDesc.value=t.desc||"";txAmt.value=t.amt;
+  txSubmit.textContent="Save changes";txCancel.hidden=false;entryTitle.textContent="Edit entry";
+  txMsg.textContent="Editing the "+fm(t.amt)+" entry from "+t.date.slice(8)+" "+MONTHS[+t.date.slice(5,7)-1]+".";
+  entryCard.scrollIntoView({behavior:"smooth",block:"start"});txAmt.focus({preventScroll:true})}
+function endEdit(){editing=null;txSubmit.textContent="Add";txCancel.hidden=true;entryTitle.textContent="Add an entry"}
+txCancel.addEventListener("click",()=>{endEdit();txAmt.value="";txDesc.value="";txMsg.textContent="Edit cancelled."});
 function monthTx(ym){return S.tx.filter(t=>t.date.slice(0,7)===ym)}
 function sumType(list,type){return list.filter(t=>t.type===type).reduce((a,t)=>a+t.amt,0)}
 function renderTracker(){
-  monthEl.value=ui.month;fillCats();
+  monthEl.value=ui.month;fillCats();fillAccts();formMode();
   if(!txDate.value||txDate.value.slice(0,7)!==ui.month)txDate.value=ui.month===curMonth?today.toISOString().slice(0,10):ui.month+"-01";
   const list=monthTx(ui.month).sort((a,b)=>b.date.localeCompare(a.date));
   const inc=sumType(list,"income"),exp=sumType(list,"expense"),sav=sumType(list,"savings"),bal=inc-exp-sav;
@@ -300,17 +389,29 @@ function renderTracker(){
       <td class="${type==="income"?(left>0?"neg":"pos"):(left<0?"neg":"")}">${fm(left)}</td><td><div class="bar"><i class="${over?"over":""}" style="width:${pc}%"></i></div></td></tr>`)});
   });
   catTable.innerHTML=`<table><thead><tr><th>Category</th><th>Budget</th><th>Actual</th><th>Remaining</th><th>Used</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
-  txList.innerHTML=list.length?`<table><thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Note</th><th>Amount</th><th></th></tr></thead><tbody>${
-    list.map(t=>`<tr><td>${t.date.slice(8)} ${MONTHS[+t.date.slice(5,7)-1]}</td><td><span class="pill ${t.type}">${t.type}</span></td><td style="text-align:left">${esc(t.cat)}</td><td style="text-align:left">${esc(t.desc||"")}</td>
-    <td class="${t.type==="income"?"pos":""}">${t.type==="income"?"+":"−"}${fm(t.amt)}</td><td><button class="x" data-tx="${t.id}" aria-label="Delete entry">×</button></td></tr>`).join("")}</tbody></table>`
+  txList.innerHTML=list.length?`<table><thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Note</th><th>Account</th><th>Amount</th><th></th></tr></thead><tbody>${
+    list.map(t=>`<tr><td>${+t.date.slice(8)} ${MONTHS[+t.date.slice(5,7)-1]}</td><td><span class="pill ${t.type}">${t.type}</span></td><td style="text-align:left">${esc(t.cat)}</td><td style="text-align:left">${esc(t.desc||"")}</td><td class="acc">${acctCell(t)}</td>
+    <td class="${t.type==="income"?"pos":""}">${t.type==="income"?"+":t.type==="transfer"?"⇄ ":"−"}${fm(t.amt)}</td><td class="acts"><button class="x" data-edit="${t.id}" aria-label="Edit entry">✎</button><button class="x" data-tx="${t.id}" aria-label="Delete entry">×</button></td></tr>`).join("")}</tbody></table>`
     :`<div class="empty">No entries for ${MONTHS[m-1]} ${y} yet. Add your pay, bills and spending above as they happen and the totals, budget comparison and year view update straight away.</div>`;
 }
 monthEl.addEventListener("change",()=>{if(monthEl.value){ui.month=monthEl.value;renderTracker()}});
 txForm.addEventListener("submit",e=>{e.preventDefault();const amt=parseFloat(txAmt.value);if(!(amt>0)||!txDate.value)return;
-  S.tx.push({id:uid(),date:txDate.value,type:txType.value,cat:txCat.value,desc:txDesc.value.trim(),amt});
+  const type=txType.value,hasTo=type==="transfer"||type==="savings";
+  if(!txAcct.value){txMsg.textContent="Add an account on the Accounts tab first.";return}
+  if(type==="transfer"&&(!txTo.value||txTo.value===txAcct.value)){txMsg.textContent="Choose two different accounts for a transfer.";return}
+  if(hasTo&&txTo.value===txAcct.value){txMsg.textContent="The from and to accounts must be different.";return}
+  const rec={date:txDate.value,type,cat:type==="transfer"?"Transfer":txCat.value,desc:txDesc.value.trim(),amt,acct:txAcct.value,to:hasTo?txTo.value:""};
+  let msg;
+  if(editing){const t=S.tx.find(x=>x.id===editing);if(t)Object.assign(t,rec);endEdit();msg="Saved changes to the "+fm(amt)+" entry."}
+  else{S.tx.push({id:uid(),...rec});
+    msg=type==="transfer"?"Moved "+fm(amt)+" from "+acctName(rec.acct)+" to "+acctName(rec.to)+".":
+      "Added "+fm(amt)+" to "+rec.cat+(type==="income"?", paid into ":", paid from ")+acctName(rec.acct)+"."}
   ui.month=txDate.value.slice(0,7);txAmt.value="";txDesc.value="";renderAll();save();
-  txMsg.textContent="Added "+fm(amt)+" to "+txCat.value+".";txAmt.focus()});
-txList.addEventListener("click",e=>{const b=e.target.closest("[data-tx]");if(!b)return;S.tx=S.tx.filter(t=>t.id!==b.dataset.tx);renderAll();save()});
+  txMsg.textContent=msg;txAmt.focus({preventScroll:true})});
+function entryClick(e){const d=e.target.closest("[data-tx]"),ed=e.target.closest("[data-edit]");
+  if(ed){startEdit(ed.dataset.edit);return}
+  if(!d)return;if(editing===d.dataset.tx)endEdit();S.tx=S.tx.filter(t=>t.id!==d.dataset.tx);renderAll();save()}
+txList.addEventListener("click",entryClick);
 
 /* ---------- year ---------- */
 function renderYear(){
@@ -366,11 +467,100 @@ recTable.addEventListener("click",e=>{const b=e.target.closest("[data-m]");if(!b
   document.querySelector('nav [data-tab="tracker"]').click();window.scrollTo(0,0)});
 yearSel.addEventListener("change",()=>{ui.year=+yearSel.value;renderYear()});
 
+/* ---------- ledger ---------- */
+function monthAfter(ym){let [y,m]=ym.split("-").map(Number);m++;if(m>12){m=1;y++}return y+"-"+pad(m)+"-01"}
+function renderLedger(){
+  if(ui.ledAcct&&!S.accounts.some(a=>a.id===ui.ledAcct))ui.ledAcct="";
+  ledAcct.innerHTML='<option value="">All accounts</option>'+S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
+  ledAcct.value=ui.ledAcct;ledMonth.value=ui.month;
+  const id=ui.ledAcct||null,start=ui.month+"-01",[yy,mm]=ui.month.split("-"),mLbl=MONTHS[mm-1]+" "+yy;
+  ledScope.textContent=id?acctName(id):"all accounts";ledMonthLbl.textContent=mLbl;
+  const byDate=(a,b)=>a.t.date.localeCompare(b.t.date)||a.i-b.i;
+  const all=S.tx.map((t,i)=>({t,i})).filter(o=>o.t.date.slice(0,7)===ui.month).sort(byDate);
+  // forecast pass: uses every account
+  const budSpend=(groupYear("expenses")+groupYear("savings"))/12;let left=budSpend;const cs={},fc={};
+  all.forEach(({t})=>{if(t.type==="expense"||t.type==="savings"){left-=t.amt;const k=t.type+"|"+t.cat;cs[k]=(cs[k]||0)+t.amt;
+      const it=S[t.type==="expense"?"expenses":"savings"].find(x=>x.name===t.cat);fc[t.id]={left,cat:it?yearly(it)/12-cs[k]:null}}
+    else fc[t.id]={left}});
+  const incF=groupYear("income")/12,incGot=sumType(all.map(o=>o.t),"income"),due=Math.max(0,incF-incGot);
+  // actual pass: selected scope
+  const list=id==null?all:all.filter(o=>o.t.acct===id||o.t.to===id);
+  const open=balance(id,start);let bal=open,inT=0,outT=0;
+  const dash='<span style="color:var(--muted)">—</span>';
+  const rows=list.map(({t})=>{const e=eff(t,id);bal+=e;
+    let inn=0,out=0;
+    if(id==null){if(t.type==="income")inn=t.amt;else if(t.type==="expense"||(t.type==="savings"&&!t.to))out=t.amt}
+    else{if(e>0)inn=e;if(e<0)out=-e}
+    inT+=inn;outT+=out;const f=fc[t.id];
+    const catLine=t.type==="transfer"?"Transfer":`${esc(t.cat)}`;
+    const catLeft=f.cat!=null?`<small class="${f.cat<0?"neg":""}">${fm(f.cat)} left in ${esc(t.cat)}</small>`:"";
+    return `<tr><td>${+t.date.slice(8)} ${MONTHS[+t.date.slice(5,7)-1]}</td>
+      <td class="details"><span class="pill ${t.type}">${t.type}</span> ${esc(t.desc||"")||catLine}<small>${t.desc?catLine:""}</small>${catLeft}</td>
+      <td class="acc">${acctCell(t)}</td>
+      <td class="pos">${inn?fm(inn):(t.type==="transfer"&&id==null?"⇄":"")}</td><td>${out?fm(out):""}</td>
+      <td class="${bal<0?"neg":""}"><b>${fm(bal)}</b></td>
+      <td class="${f.left<0?"neg":""}">${t.type==="expense"||t.type==="savings"?fm(f.left):dash}</td>
+      <td class="acts"><button class="x" data-edit="${t.id}" aria-label="Edit entry">✎</button><button class="x" data-tx="${t.id}" aria-label="Delete entry">×</button></td></tr>`}).join("");
+  ledTable.innerHTML=`<table><thead><tr><th>Date</th><th>Details</th><th>Account</th><th>Money in</th><th>Money out</th><th>Balance</th><th>Budget left</th><th></th></tr></thead>
+    <tbody><tr class="subt"><td>1 ${MONTHS[mm-1]}</td><td class="details">Opening balance</td><td class="acc">${id?esc(acctName(id)):"All accounts"}</td><td></td><td></td><td class="${open<0?"neg":""}">${fm(open)}</td><td>${fm(budSpend)}</td><td></td></tr>
+    ${rows||`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:22px;white-space:normal">No entries ${id?"for "+esc(acctName(id))+" ":""}in ${mLbl} yet. Add one above and it appears here with the new balance.</td></tr>`}</tbody>
+    <tfoot><tr><td>Totals</td><td></td><td></td><td class="pos">${fm(inT)}</td><td>${fm(outT)}</td><td class="${bal<0?"neg":""}">${fm(bal)}</td><td class="${left<0?"neg":""}">${fm(left)}</td><td></td></tr></tfoot></table>`;
+  lOpen.textContent=fm(open);lClose.textContent=fm(bal);lClose.className="v "+(bal<0?"neg":"");lIn.textContent=fm(inT);lOut.textContent=fm(outT);
+  fBud.textContent=fm(budSpend);fSpent.textContent=fm(budSpend-left);fLeft.textContent=fm(left);fLeft.className="v "+(left<0?"neg":"pos");fDue.textContent=fm(due);
+  const closeAll=balance(null,monthAfter(ui.month)),proj=closeAll+due-Math.max(0,left);
+  projLine.innerHTML=ui.month<curMonth?`${mLbl} finished ${left<0?`<b class="neg">${fm(-left)} over</b>`:`<b class="pos">${fm(left)} under</b>`} the spending forecast.`
+    :`If the rest of ${mLbl} goes to plan, all accounts together end the month at about <b class="${proj<0?"neg":"pos"}">${fm(proj)}</b> (today's ${fm(closeAll)}, plus ${fm(due)} income still due, minus ${fm(Math.max(0,left))} budget still to spend).`;
+}
+ledAcct.addEventListener("change",()=>{ui.ledAcct=ledAcct.value;renderLedger()});
+ledMonth.addEventListener("change",()=>{if(ledMonth.value){ui.month=ledMonth.value;renderLedger()}});
+ledTable.addEventListener("click",entryClick);
+
+/* ---------- accounts ---------- */
+function renderAcctCards(){let cash=0,owed=0;const mt=monthTx(curMonth);
+  acctCards.innerHTML=S.accounts.map(a=>{const b=balance(a.id),debt=isDebt(a.kind);
+    if(b<0&&debt)owed+=-b;else cash+=b;
+    let inn=0,out=0;mt.forEach(t=>{const e=eff(t,a.id);if(e>0)inn+=e;else out-=e});
+    const lim=+a.limit||0,avail=debt&&lim?` · ${fm(lim+b)} available of ${fm(lim)}`:"";
+    const big=debt?fm(Math.abs(b)):fm(b),lbl=debt?(b<0?"Owed":b>0?"In credit":"Nothing owed"):"Balance";
+    return `<div class="card acct"><div class="row" style="align-items:flex-start"><div style="min-width:0"><h3>${KINDS[a.kind]||"Account"}</h3><div class="aname">${esc(a.name)}</div></div>
+      <button class="btn ghost sm" type="button" data-led="${a.id}">Ledger</button></div>
+      <div class="abal ${(debt?b<0:b<0)?"neg":""}">${big}</div><div class="note">${lbl}${avail}</div>
+      <div class="note">${curLabel}: in ${fm(inn)} · out ${fm(out)}</div></div>`}).join("")||'<div class="empty">No accounts yet. Tap “Add account” below.</div>';
+  aCash.textContent=fm(cash);aOwed.textContent=fm(owed);aOwed.className="v "+(owed>0?"neg":"");
+  aNet.textContent=fm(cash-owed);aNet.className="v "+(cash-owed<0?"neg":"pos");
+  S.accounts.forEach(a=>{const c=document.querySelector(`#acctTable [data-bal="${a.id}"]`);if(c){const b=balance(a.id);c.textContent=fm(b);c.className=b<0?"neg":""}});
+}
+function renderAcctTable(){
+  acctTable.innerHTML=`<table><thead><tr><th>Name</th><th>Type</th><th>Starting balance</th><th>Limit</th><th>Balance now</th><th>Entries</th><th></th></tr></thead><tbody>${
+    S.accounts.map(a=>{const n=S.tx.filter(t=>t.acct===a.id||t.to===a.id).length;return `<tr data-aid="${a.id}">
+      <td><input class="name" id="an-${a.id}" data-f="name" value="${esc(a.name)}" aria-label="Account name"></td>
+      <td><select id="ak-${a.id}" data-f="kind" aria-label="Account type">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}"${k===a.kind?" selected":""}>${v}</option>`).join("")}</select></td>
+      <td><input class="amt" id="ao-${a.id}" data-f="opening" type="number" step="0.01" inputmode="decimal" value="${+a.opening||0}" aria-label="Starting balance"></td>
+      <td><input class="amt" id="al-${a.id}" data-f="limit" type="number" step="0.01" min="0" inputmode="decimal" value="${+a.limit||0}" aria-label="Limit"${isDebt(a.kind)?"":" disabled"}></td>
+      <td data-bal="${a.id}"></td><td class="calc">${n}</td>
+      <td><button class="x" type="button" data-adel="${a.id}" aria-label="Remove ${esc(a.name)}">×</button></td></tr>`}).join("")}</tbody></table>`;
+  renderAcctCards();
+}
+acctTable.addEventListener("input",e=>{const tr=e.target.closest("tr[data-aid]");if(!tr)return;const a=S.accounts.find(x=>x.id===tr.dataset.aid);if(!a)return;
+  const f=e.target.dataset.f;if(f==="name")a.name=e.target.value;else if(f==="opening"||f==="limit")a[f]=parseFloat(e.target.value)||0;else return;
+  renderAcctCards();fillAccts();save()});
+acctTable.addEventListener("change",e=>{if(e.target.dataset.f!=="kind")return;const a=S.accounts.find(x=>x.id===e.target.closest("tr").dataset.aid);a.kind=e.target.value;renderAcctTable();save()});
+acctTable.addEventListener("click",e=>{const b=e.target.closest("[data-adel]");if(!b)return;const a=S.accounts.find(x=>x.id===b.dataset.adel);
+  const n=S.tx.filter(t=>t.acct===a.id||t.to===a.id).length;
+  if(n){acctMsg.textContent=`${a.name} has ${n} ${n===1?"entry":"entries"}. Edit or delete ${n===1?"it":"them"} first, or rename the account instead.`;return}
+  if(S.accounts.length===1){acctMsg.textContent="Keep at least one account so entries have somewhere to go.";return}
+  S.accounts=S.accounts.filter(x=>x.id!==a.id);renderAcctTable();fillAccts();save();acctMsg.textContent=`Removed ${a.name}.`});
+addAcct.addEventListener("click",()=>{const a={id:uid(),name:"New account",kind:"bank",opening:0,limit:0};S.accounts.push(a);renderAcctTable();fillAccts();save();
+  const el=document.getElementById("an-"+a.id);el&&(el.focus(),el.select())});
+acctCards.addEventListener("click",e=>{const b=e.target.closest("[data-led]");if(!b)return;ui.ledAcct=b.dataset.led;ui.month=curMonth;
+  document.querySelector('nav [data-tab="ledger"]').click();window.scrollTo(0,0)});
+
 /* ---------- tabs ---------- */
 document.querySelector("nav").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;ui.tab=b.dataset.tab;
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
-  ["budget","tracker","year"].forEach(t=>document.getElementById("tab-"+t).hidden=t!==ui.tab);
-  if(ui.tab==="tracker")renderTracker();if(ui.tab==="year")renderYear();});
+  ["budget","tracker","ledger","accounts","year"].forEach(t=>document.getElementById("tab-"+t).hidden=t!==ui.tab);
+  if(ui.tab==="ledger")ledEntrySlot.appendChild(entryCard);if(ui.tab==="tracker")trkEntrySlot.appendChild(entryCard);
+  if(ui.tab==="tracker")renderTracker();if(ui.tab==="ledger")renderLedger();if(ui.tab==="accounts")renderAcctTable();if(ui.tab==="year")renderYear();});
 
 /* ---------- backup ---------- */
 let resetArmed=false;
@@ -379,15 +569,15 @@ exportBtn.addEventListener("click",()=>{const blob=new Blob([JSON.stringify(S,nu
   document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);dataMsg.textContent="Backup downloaded."});
 importFile.addEventListener("change",async()=>{const f=importFile.files[0];if(!f)return;
   try{const d=JSON.parse(await f.text());if(!Array.isArray(d.income)||!Array.isArray(d.expenses))throw 0;
-    d.savings=d.savings||[];d.tx=d.tx||[];S=d;renderAll();save();dataMsg.textContent="Backup imported."}
+    S=migrate(d);endEdit();renderAll();save();dataMsg.textContent="Backup imported."}
   catch(e){dataMsg.textContent="That file isn't a Manage My Money backup. Choose a .json file made with Export backup."}
   importFile.value=""});
 resetBtn.addEventListener("click",()=>{if(!resetArmed){resetArmed=true;resetBtn.textContent="Tap again to erase everything";
   setTimeout(()=>{resetArmed=false;resetBtn.textContent="Reset"},4000);return}
-  resetArmed=false;resetBtn.textContent="Reset";S=seed();renderAll();save();dataMsg.textContent="Reset to the starting budget. Tracker entries were cleared."});
+  resetArmed=false;resetBtn.textContent="Reset";S=migrate(seed());endEdit();renderAll();save();dataMsg.textContent="Reset to the starting budget. Entries and accounts were cleared."});
 
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-function renderAll(){Object.keys(GROUPS).forEach(renderGroup);renderSummary();renderTracker();renderYear()}
+function renderAll(){Object.keys(GROUPS).forEach(renderGroup);renderSummary();fillAccts();renderTracker();renderLedger();renderAcctTable();renderYear()}
 renderAll();
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
