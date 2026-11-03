@@ -1,5 +1,5 @@
 // Caches the app so it opens without internet. Bump VERSION after editing files.
-const VERSION = "mmm-v3";
+const VERSION = "mmm-v5";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener("activate", e => {
@@ -9,7 +9,7 @@ self.addEventListener("activate", e => {
 self.addEventListener("fetch", e => {
   if (e.request.method !== "GET") return;
   e.respondWith(
-    fetch(e.request).then(res => {
+    fetch(e.request,{cache:"no-cache"}).then(res => {
       if (res.ok && new URL(e.request.url).origin === location.origin) {
         const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy));
       }

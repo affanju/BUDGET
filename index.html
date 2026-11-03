@@ -39,9 +39,9 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var
 .head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px 8px}
 h1{font-family:var(--display);font-weight:800;font-size:1.6rem;margin:0;letter-spacing:-.01em}
 h1 span{color:var(--accent)}
-.status{font-size:.78rem;color:var(--muted);white-space:nowrap}
-nav{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px}
-nav button{font:600 .9rem var(--body);border:0;background:transparent;color:var(--muted);padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.status{font-size:.78rem;color:var(--muted);white-space:nowrap;text-align:right;line-height:1.35}
+nav{display:flex;flex-wrap:wrap;gap:4px;padding-bottom:8px}
+nav button{font:600 .9rem var(--body);border:0;background:var(--sunk);color:var(--muted);padding:7px 12px;border-radius:999px;cursor:pointer;white-space:nowrap}
 nav button[aria-selected="true"]{background:var(--accent);color:var(--bg)}
 h2{font-family:var(--display);font-weight:600;font-size:1.25rem;margin:0;text-wrap:balance}
 h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0;font-weight:700}
@@ -108,18 +108,55 @@ td.acc{text-align:left;white-space:normal;min-width:110px}
 table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
 .mlink{border:0;background:none;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline;text-transform:inherit;letter-spacing:inherit;padding:0}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .3s}}
+.checks{display:flex;flex-wrap:wrap;gap:8px 18px}
+.checks label{display:flex;gap:8px;align-items:center;font-weight:600;cursor:pointer}
+.checks input{width:18px;height:18px;accent-color:var(--accent)}
+.report{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;min-width:0}
+.rep-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;border-bottom:2px solid var(--fg);padding-bottom:10px;margin-bottom:6px}
+.rep-head h2{font-size:1.5rem}
+.rep-sec{padding-top:18px;display:grid;gap:10px;min-width:0}
+.rep-sec h3.sec{font:700 1.05rem var(--display);text-transform:none;letter-spacing:0;color:var(--fg)}
+.rep-sec h4{margin:6px 0 0;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.report .acts,.report .mlink{pointer-events:none}
+.report .mlink{color:inherit;text-decoration:none}
+.report td.acts,.report th:last-child:empty{display:none}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 16px}
+.kv div{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.kv b{display:block;font-size:1.05rem;font-variant-numeric:tabular-nums}
+.kv span{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+@media print{
+  :root{--bg:#fff;--surface:#fff;--sunk:#f1f1f1;--line:#bbb;--fg:#000;--muted:#444;--accent:#1f5a2c;--olive:#3d5a12;--good:#1f6b2c;--bad:#b0261a;--accent-soft:#eee;color-scheme:light}
+  body{background:#fff;font-size:9.5pt}
+  body::before,header,.no-print,main>section:not(#tab-reports){display:none!important}
+  #tab-reports{display:block!important;padding:0}
+  .wrap{max-width:none;padding:0!important}
+  .report{border:0;padding:0;border-radius:0}
+  .scroll{overflow:visible}
+  table{font-size:8.5pt}
+  th,td{padding:3px 5px}
+  td.details,td.acc{min-width:0}
+  .rep-sec{break-inside:auto}
+  .rep-sec h3.sec,.rep-sec h4,.kv{break-after:avoid}
+  .rep-sec{padding-top:14px}
+  tr,.kv div{break-inside:avoid}
+  thead{display:table-header-group}
+  .bar{border:1px solid #999}
+  #chart svg{max-height:200px}
+}
 </style>
+<style id="pageStyle">@page{size:A4 portrait;margin:12mm}</style>
 
 </head>
 <body>
 <header><div class="wrap">
-  <div class="head"><h1>Manage <span>My Money</span></h1><span class="status" id="status">Loading…</span></div>
+  <div class="head"><h1>Manage <span>My Money</span></h1><span class="status"><span id="status">Loading…</span><br><span id="appVer">Version 5 · 3 Nov 2026</span></span></div>
   <nav role="tablist">
     <button role="tab" data-tab="budget" aria-selected="true">Budget</button>
     <button role="tab" data-tab="tracker" aria-selected="false">Monthly tracker</button>
     <button role="tab" data-tab="ledger" aria-selected="false">Ledger</button>
     <button role="tab" data-tab="accounts" aria-selected="false">Accounts</button>
     <button role="tab" data-tab="year" aria-selected="false">Year forecast</button>
+    <button role="tab" data-tab="reports" aria-selected="false">Print &amp; Excel</button>
   </nav>
 </div></header>
 
@@ -218,6 +255,35 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
   <div class="card"><div class="row" style="margin-bottom:10px"><h2>Manage accounts</h2><button class="btn ghost" id="addAcct" type="button">+ Add account</button></div>
     <div class="scroll" id="acctTable"></div>
     <p class="note" id="acctMsg" style="margin-top:10px" aria-live="polite">Starting balance is what the account held before your first entry. For a credit card or loan, enter what you owe as a minus, e.g. -450. Limit is optional.</p></div>
+</section>
+
+<!-- REPORTS -->
+<section class="panel" id="tab-reports" hidden>
+  <div class="card no-print">
+    <h2 style="margin-bottom:12px">Print reports</h2>
+    <div class="form">
+      <label>Period<select id="rPeriod"><option value="month">One month</option><option value="year">Whole year</option></select></label>
+      <label id="rMonthL">Month<input type="month" id="rMonth"></label>
+      <label id="rYearL" hidden>Year<select id="rYear"></select></label>
+      <label>Ledger account<select id="rAcct"></select></label>
+      <label>Paper<select id="rOrient"><option value="portrait">A4 portrait</option><option value="landscape">A4 landscape</option></select></label>
+    </div>
+    <h3 style="margin:16px 0 8px">Include</h3>
+    <div class="checks">
+      <label><input type="checkbox" id="rBS" checked> Balance sheet</label>
+      <label><input type="checkbox" id="rBud" checked> Budget</label>
+      <label><input type="checkbox" id="rLed" checked> Ledger</label>
+      <label><input type="checkbox" id="rBva" checked> Budget vs actual</label>
+      <label><input type="checkbox" id="rFc" checked> Year forecast</label>
+      <label><input type="checkbox" id="rRec"> Year record by category</label>
+    </div>
+    <div class="row" style="margin-top:16px;justify-content:flex-start;gap:8px">
+      <button class="btn" type="button" id="printBtn">Print / Save as PDF</button>
+      <button class="btn ghost" type="button" id="xlBtn">Export to Excel</button>
+    </div>
+    <p class="note" id="printMsg" style="margin-top:10px" aria-live="polite">The preview below is exactly what prints. To make a PDF, choose “Save as PDF” as the printer. Landscape fits the year tables best. Excel export makes one sheet per ticked section for the same period, with live totals.</p>
+  </div>
+  <div class="report" id="reportOut"></div>
 </section>
 
 <!-- YEAR -->
@@ -555,12 +621,226 @@ addAcct.addEventListener("click",()=>{const a={id:uid(),name:"New account",kind:
 acctCards.addEventListener("click",e=>{const b=e.target.closest("[data-led]");if(!b)return;ui.ledAcct=b.dataset.led;ui.month=curMonth;
   document.querySelector('nav [data-tab="ledger"]').click();window.scrollTo(0,0)});
 
+/* ---------- reports ---------- */
+const rp={period:"month",month:curMonth,year:today.getFullYear(),acct:""};
+const longDate=d=>d.toLocaleDateString("en-AU",{day:"numeric",month:"long",year:"numeric"});
+function lastDay(ym){const [y,m]=ym.split("-").map(Number);return new Date(y,m,0)}
+function kv(pairs){return `<div class="kv">${pairs.map(([k,v,c])=>`<div><span>${k}</span><b class="${c||""}">${v}</b></div>`).join("")}</div>`}
+function balanceSheet(asAtNext,openDate,lbl,openLbl){
+  const line=(a,b0,b1,owe)=>`<tr><td>${esc(a.name)} <small>${KINDS[a.kind]||""}</small></td><td>${fm(b0)}</td><td>${fm(b1)}</td><td class="${(owe?b1-b0>0:b1-b0<0)?"neg":"pos"}">${b1-b0>0?"+":""}${fm(b1-b0)}</td></tr>`;
+  let A="",L="",ta0=0,ta1=0,tl0=0,tl1=0;
+  S.accounts.forEach(a=>{const b0=balance(a.id,openDate),b1=balance(a.id,asAtNext);
+    if(isDebt(a.kind)||b1<0){L+=line(a,-b0,-b1,true);tl0+=-b0;tl1+=-b1}else{A+=line(a,b0,b1);ta0+=b0;ta1+=b1}});
+  const head=`<thead><tr><th>Account</th><th>${openLbl}</th><th>${lbl}</th><th>Change</th></tr></thead>`;
+  const tot=(t,x0,x1)=>`<tr class="subt"><td>${t}</td><td>${fm(x0)}</td><td>${fm(x1)}</td><td>${x1-x0>0?"+":""}${fm(x1-x0)}</td></tr>`;
+  return `<div class="scroll"><table>${head}<tbody>
+    <tr><td colspan="4"><h4>Assets (money you hold)</h4></td></tr>${A||'<tr><td colspan="4" class="calc">None</td></tr>'}${tot("Total assets",ta0,ta1)}
+    <tr><td colspan="4"><h4>Liabilities (money you owe)</h4></td></tr>${L||'<tr><td colspan="4" class="calc">None</td></tr>'}${tot("Total liabilities",tl0,tl1)}
+    </tbody><tfoot><tr><td>Net worth</td><td>${fm(ta0-tl0)}</td><td class="${ta1-tl1<0?"neg":""}">${fm(ta1-tl1)}</td><td>${(ta1-tl1)-(ta0-tl0)>0?"+":""}${fm((ta1-tl1)-(ta0-tl0))}</td></tr></tfoot></table></div>`}
+function budgetReport(){let h="";
+  [["income","Income"],["expenses","Expenses"],["savings","Savings"]].forEach(([g,l])=>{if(!S[g].length)return;
+    const t=groupYear(g);
+    h+=`<h4>${l}</h4><div class="scroll"><table><thead><tr><th>Item</th><th>Amount</th><th>How often</th><th>Weekly</th><th>Fortnightly</th><th>Monthly</th><th>Yearly</th></tr></thead><tbody>${
+      S[g].map(i=>{const y=yearly(i);return `<tr><td>${esc(i.name)}</td><td>${fm(+i.amount||0)}</td><td>${FL[i.freq]||""}</td><td>${fm(y/52)}</td><td>${fm(y/26)}</td><td><b>${fm(y/12)}</b></td><td>${fm(y)}</td></tr>`}).join("")}</tbody>
+      <tfoot><tr><td>Total ${l.toLowerCase()}</td><td></td><td></td><td>${fm(t/52)}</td><td>${fm(t/26)}</td><td>${fm(t/12)}</td><td>${fm(t)}</td></tr></tfoot></table></div>`});
+  const inc=groupYear("income"),out=groupYear("expenses")+groupYear("savings"),bal=inc-out;
+  h+=`<h4>Summary</h4><div class="scroll"><table><thead><tr><th></th><th>Weekly</th><th>Fortnightly</th><th>Monthly</th><th>Yearly</th></tr></thead><tbody>
+    ${[["Income",inc],["Expenses",groupYear("expenses")],["Savings",groupYear("savings")]].map(([k,v])=>`<tr><td>${k}</td>${[52,26,12,1].map(d=>`<td>${fm(v/d)}</td>`).join("")}</tr>`).join("")}
+    </tbody><tfoot><tr><td>Cash balance</td>${[52,26,12,1].map(d=>`<td class="${bal<0?"neg":"pos"}">${fm(bal/d)}</td>`).join("")}</tr></tfoot></table></div>
+    <p class="note">${inc?Math.round(out/inc*100):0}% of income is budgeted to be spent or saved.</p>`;
+  return h}
+function snapLedger(ym,acct){ui.month=ym;ui.ledAcct=acct;renderLedger();
+  return {table:ledTable.innerHTML,stats:[["Opening balance",lOpen.textContent],["Money in",lIn.textContent],["Money out",lOut.textContent],["Closing balance",lClose.textContent,lClose.classList.contains("neg")?"neg":""]],
+    fc:[["Budgeted spending",fBud.textContent],["Spent",fSpent.textContent],["Remaining from forecast",fLeft.textContent,fLeft.classList.contains("neg")?"neg":"pos"],["Income still due",fDue.textContent]],proj:projLine.innerHTML}}
+function snapBva(ym){ui.month=ym;renderTracker();return {table:catTable.innerHTML,stats:[["Income",tInc.textContent],["Expenses",tExp.textContent],["Savings",tSav.textContent],["Left over",tBal.textContent,tBal.classList.contains("neg")?"neg":"pos"]]}}
+function buildReport(){
+  // controls
+  rAcct.innerHTML='<option value="">All accounts</option>'+S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
+  if(rp.acct&&!S.accounts.some(a=>a.id===rp.acct))rp.acct="";rAcct.value=rp.acct;
+  const ys=new Set([today.getFullYear()-1,today.getFullYear(),today.getFullYear()+1,...S.tx.map(t=>+t.date.slice(0,4))]);
+  rYear.innerHTML=[...ys].sort().map(y=>`<option${y===rp.year?" selected":""}>${y}</option>`).join("");
+  rPeriod.value=rp.period;rMonth.value=rp.month;rMonthL.hidden=rp.period!=="month";rYearL.hidden=rp.period!=="year";
+  pageStyle.textContent=`@page{size:A4 ${rOrient.value};margin:12mm}`;
+  const keep={month:ui.month,ledAcct:ui.ledAcct,year:ui.year};
+  const isM=rp.period==="month",ym=rp.month,yr=isM?+ym.slice(0,4):rp.year;
+  const months=isM?[ym]:MONTHS.map((_,i)=>yr+"-"+pad(i+1));
+  const first=months[0]+"-01",nextAfter=monthAfter(months[months.length-1]);
+  const endD=lastDay(months[months.length-1]),asAt=endD>today&&first<=today.toISOString().slice(0,10)?today:endD;
+  const [my,mm]=(isM?ym:"").split("-");const title=isM?MONTHS[mm-1]+" "+my:"Year "+yr;
+  const scope=rp.acct?acctName(rp.acct):"All accounts";
+  let h=`<div class="rep-head"><div><h2>Manage My Money</h2><div class="note">Financial report · ${title}</div></div>
+    <div class="note" style="text-align:right">Prepared ${longDate(today)}<br>Ledger: ${esc(scope)}</div></div>`;
+  let pb=false;const sec=(t,body)=>{const c=`<div class="rep-sec${pb?" pb":""}"><h3 class="sec">${t}</h3>${body}</div>`;pb=true;return c};
+  if(rBS.checked){const asLbl=asAt===today?"Today":"As at "+asAt.getDate()+" "+MONTHS[asAt.getMonth()];
+    const nextD=new Date(asAt.getFullYear(),asAt.getMonth(),asAt.getDate()+1),nx=nextD.getFullYear()+"-"+pad(nextD.getMonth()+1)+"-"+pad(nextD.getDate());
+    h+=sec("Balance sheet · as at "+longDate(asAt),balanceSheet(nx,first,asLbl,"Opening "+(isM?"1 "+MONTHS[mm-1]:"1 Jan")))}
+  if(rBud.checked)h+=sec("Budget",budgetReport());
+  if(rBva.checked){let b="";months.forEach(m=>{if(!isM&&!monthTx(m).length)return;const v=snapBva(m);b+=`${isM?"":`<h4>${MONTHS[+m.slice(5)-1]} ${yr}</h4>`}${kv(v.stats)}<div class="scroll">${v.table}</div>`});
+    h+=sec("Budget vs actual"+(isM?" · "+title:""),b||'<p class="note">No entries in this period.</p>')}
+  if(rLed.checked){let b="";months.forEach(m=>{const hasAny=S.tx.some(t=>t.date.slice(0,7)===m&&(!rp.acct||t.acct===rp.acct||t.to===rp.acct));if(!isM&&!hasAny)return;
+      const v=snapLedger(m,rp.acct);b+=`${isM?"":`<h4>${MONTHS[+m.slice(5)-1]} ${yr}</h4>`}${kv(v.stats)}${isM?kv(v.fc):""}<div class="scroll">${v.table}</div>${isM?`<p class="note">${v.proj}</p>`:""}`});
+    h+=sec("Ledger · "+esc(scope),b||'<p class="note">No entries in this period.</p>')}
+  if(rFc.checked||rRec.checked){ui.year=yr;renderYear();
+    if(rFc.checked)h+=sec("Year forecast vs actual · "+yr,`<div>${chart.innerHTML}</div><div class="scroll">${yearTable.innerHTML}</div>`);
+    if(rRec.checked)h+=sec("Year record by category · "+yr,`<div class="scroll">${recTable.innerHTML}</div>`)}
+  if(!pb)h+='<p class="note" style="padding-top:16px">Tick at least one section to include in the report.</p>';
+  ui.month=keep.month;ui.ledAcct=keep.ledAcct;ui.year=keep.year;renderTracker();renderLedger();renderYear();
+  reportOut.innerHTML=h;
+}
+rPeriod.addEventListener("change",()=>{rp.period=rPeriod.value;
+  if(rp.period==="year"&&!rRec.checked){rRec.checked=true;rOrient.value="landscape"}buildReport()});
+rMonth.addEventListener("change",()=>{if(rMonth.value){rp.month=rMonth.value;buildReport()}});
+rYear.addEventListener("change",()=>{rp.year=+rYear.value;buildReport()});
+rAcct.addEventListener("change",()=>{rp.acct=rAcct.value;buildReport()});
+[rOrient,rBS,rBud,rLed,rBva,rFc,rRec].forEach(el=>el.addEventListener("change",()=>{if(el===rRec&&rRec.checked)rOrient.value="landscape";buildReport()}));
+printBtn.addEventListener("click",()=>{buildReport();
+  try{window.print()}catch(e){printMsg.textContent="Printing isn't available here. Use your browser menu: Share → Print."}});
+
+/* ---------- Excel export (built-in .xlsx writer) ---------- */
+const XL=(()=>{
+  const T=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;T[n]=c>>>0}
+  const crc=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
+  const enc=new TextEncoder();
+  function zip(files){const parts=[],cd=[];let off=0,cdSize=0;
+    files.forEach(f=>{const nm=enc.encode(f.name),d=enc.encode(f.data),c=crc(d);
+      const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);
+      h.setUint16(12,0x21,true);h.setUint32(14,c,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nm.length,true);
+      parts.push(new Uint8Array(h.buffer),nm,d);
+      const e=new DataView(new ArrayBuffer(46));e.setUint32(0,0x02014b50,true);e.setUint16(4,20,true);e.setUint16(6,20,true);e.setUint16(8,0x0800,true);
+      e.setUint16(14,0x21,true);e.setUint32(16,c,true);e.setUint32(20,d.length,true);e.setUint32(24,d.length,true);e.setUint16(28,nm.length,true);e.setUint32(42,off,true);
+      cd.push(new Uint8Array(e.buffer),nm);cdSize+=46+nm.length;off+=30+nm.length+d.length});
+    const z=new DataView(new ArrayBuffer(22));z.setUint32(0,0x06054b50,true);z.setUint16(8,files.length,true);z.setUint16(10,files.length,true);
+    z.setUint32(12,cdSize,true);z.setUint32(16,off,true);
+    return new Blob([...parts,...cd,new Uint8Array(z.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})}
+  const x=v=>String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const col=n=>{let s="";n++;while(n){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=(n-m-1)/26}return s};
+  const ST={money:1,bold:2,bmoney:3,date:4,head:5,title:6,note:7,pct:8};
+  const serial=d=>{const [y,m,dd]=d.split("-").map(Number);return (Date.UTC(y,m-1,dd)-Date.UTC(1899,11,30))/86400000};
+  function cell(v,r,c){if(v==null||v==="")return "";const ref=col(c)+r;
+    if(typeof v==="number")return `<c r="${ref}"><v>${v}</v></c>`;
+    if(typeof v==="string")return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+    const s=v.s?` s="${ST[v.s]}"`:"";
+    if(v.f!=null)return `<c r="${ref}"${s}><f>${x(v.f)}</f></c>`;
+    if(v.d)return `<c r="${ref}"${s||' s="4"'}><v>${serial(v.d)}</v></c>`;
+    if(typeof v.v==="number")return `<c r="${ref}"${s}><v>${Math.round(v.v*100)/100}</v></c>`;
+    return `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${x(v.v)}</t></is></c>`}
+  function sheetXml(sh){const cols=sh.widths?`<cols>${sh.widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`:"";
+    const pane=sh.freeze?`<sheetViews><sheetView workbookViewId="0"><pane ySplit="${sh.freeze}" topLeftCell="A${sh.freeze+1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>`:"";
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">${pane}${cols}<sheetData>${
+      sh.rows.map((row,ri)=>`<row r="${ri+1}">${(row||[]).map((v,ci)=>cell(v,ri+1,ci)).join("")}</row>`).join("")}</sheetData><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`}
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="3"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00;[Red]\-&quot;$&quot;#,##0.00"/><numFmt numFmtId="165" formatCode="d mmm yyyy"/><numFmt numFmtId="166" formatCode="0%"/></numFmts>
+<fonts count="4"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><color rgb="FF2F6B3C"/><name val="Calibri"/></font><font><i/><sz val="10"/><color rgb="FF5F6D60"/><name val="Calibri"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDBE9D6"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left/><right/><top style="thin"/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>
+<xf numFmtId="164" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1"/>
+<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>
+<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>
+<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  function book(sheets){const names=sheets.map(s=>s.name.replace(/[\\/?*\[\]:]/g," ").slice(0,31));
+    const files=[
+      {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`},
+      {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+      {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${names.map((n,i)=>`<sheet name="${x(n)}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets><calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>`},
+      {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+      {name:"xl/styles.xml",data:styles},
+      ...sheets.map((s,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,data:sheetXml(s)}))];
+    return zip(files)}
+  return {book,col}})();
+
+const M=v=>({v:+v||0,s:"money"}),BM=v=>({v:+v||0,s:"bmoney"}),B=v=>({v,s:"bold"}),H=v=>({v,s:"head"}),FX=(f,s="money")=>({f,s});
+function ledgerData(ym,id){
+  const byDate=(a,b)=>a.t.date.localeCompare(b.t.date)||a.i-b.i;
+  const all=S.tx.map((t,i)=>({t,i})).filter(o=>o.t.date.slice(0,7)===ym).sort(byDate);
+  const budSpend=(groupYear("expenses")+groupYear("savings"))/12;let left=budSpend;const cs={},fc={};
+  all.forEach(({t})=>{if(t.type==="expense"||t.type==="savings"){left-=t.amt;const k=t.type+"|"+t.cat;cs[k]=(cs[k]||0)+t.amt;
+    const it=S[t.type==="expense"?"expenses":"savings"].find(x=>x.name===t.cat);fc[t.id]={left,cat:it?yearly(it)/12-cs[k]:null}}else fc[t.id]={left:null}});
+  const list=id==null?all:all.filter(o=>o.t.acct===id||o.t.to===id);
+  return {open:balance(id,ym+"-01"),budSpend,rows:list.map(({t})=>{const e=eff(t,id);let inn=0,out=0;
+    if(id==null){if(t.type==="income")inn=t.amt;else if(t.type==="expense"||(t.type==="savings"&&!t.to))out=t.amt}else{if(e>0)inn=e;if(e<0)out=-e}
+    return {t,inn,out,...fc[t.id]}})}}
+function exportExcel(){
+  const isM=rp.period==="month",yr=isM?+rp.month.slice(0,4):rp.year;
+  const months=isM?[rp.month]:MONTHS.map((_,i)=>yr+"-"+pad(i+1));
+  const title=isM?MONTHS[+rp.month.slice(5)-1]+" "+yr:"Year "+yr;
+  const id=rp.acct||null,scope=id?acctName(id):"All accounts";
+  const sub=[{v:"Manage My Money · "+title+" · prepared "+longDate(today),s:"note"}];
+  const sheets=[];
+  if(rBS.checked){const first=months[0]+"-01",endD=lastDay(months[months.length-1]);
+    const asAt=endD>today&&first<=today.toISOString().slice(0,10)?today:endD;
+    const nd=new Date(asAt.getFullYear(),asAt.getMonth(),asAt.getDate()+1),nx=nd.getFullYear()+"-"+pad(nd.getMonth()+1)+"-"+pad(nd.getDate());
+    const r=[[{v:"Balance sheet as at "+longDate(asAt),s:"title"}],sub,[],[H("Account"),H("Type"),H("Opening "+first.slice(8)*1+" "+MONTHS[+first.slice(5,7)-1]),H("As at "+asAt.getDate()+" "+MONTHS[asAt.getMonth()]),H("Change")]];
+    const block=(lbl,accts,sign)=>{r.push([B(lbl)]);const s0=r.length+1;
+      accts.forEach(a=>{const n=r.length+1;r.push([a.name,KINDS[a.kind]||"",M(sign*balance(a.id,first)),M(sign*balance(a.id,nx)),FX(`D${n}-C${n}`)])});
+      const e=r.length;const t=r.length+1;
+      r.push([B("Total "+lbl.toLowerCase()),"",accts.length?FX(`SUM(C${s0}:C${e})`,"bmoney"):BM(0),accts.length?FX(`SUM(D${s0}:D${e})`,"bmoney"):BM(0),FX(`D${t}-C${t}`,"bmoney")]);r.push([]);return t};
+    const liab=S.accounts.filter(a=>isDebt(a.kind)||balance(a.id,nx)<0),assets=S.accounts.filter(a=>!liab.includes(a));
+    const ta=block("Assets",assets,1),tl=block("Liabilities",liab,-1);const n=r.length+1;
+    r.push([B("Net worth"),"",FX(`C${ta}-C${tl}`,"bmoney"),FX(`D${ta}-D${tl}`,"bmoney"),FX(`D${n}-C${n}`,"bmoney")]);
+    sheets.push({name:"Balance sheet",rows:r,widths:[26,14,16,16,14]})}
+  if(rBud.checked){const r=[[{v:"Budget",s:"title"}],sub,[],[H("Group"),H("Item"),H("Amount"),H("How often"),H("Times a year"),H("Weekly"),H("Fortnightly"),H("Monthly"),H("Yearly")]];
+    const tot={};
+    [["income","Income"],["expenses","Expenses"],["savings","Savings"]].forEach(([g,l])=>{if(!S[g].length)return;const s0=r.length+1;
+      S[g].forEach(i=>{const n=r.length+1;r.push([l,i.name,M(i.amount),FL[i.freq]||"Monthly",F[i.freq]||12,FX(`I${n}/52`),FX(`I${n}/26`),FX(`I${n}/12`),FX(`C${n}*E${n}`)])});
+      const e=r.length,t=r.length+1;tot[g]=t;
+      r.push([B("Total "+l.toLowerCase()),"","","","",...["F","G","H","I"].map(c=>FX(`SUM(${c}${s0}:${c}${e})`,"bmoney"))]);r.push([])});
+    const ref=(g,c)=>tot[g]?`${c}${tot[g]}`:"0";
+    r.push([B("Cash balance"),"Income − expenses − savings","","","",...["F","G","H","I"].map(c=>FX(`${ref("income",c)}-${ref("expenses",c)}-${ref("savings",c)}`,"bmoney"))]);
+    r.push(["% of income spent or saved","","","","","","",{f:`IF(${ref("income","H")}=0,0,(${ref("expenses","H")}+${ref("savings","H")})/${ref("income","H")})`,s:"pct"}]);
+    r.push([],[{v:"Change Amount or Times a year (52 weekly, 26 fortnightly, 12 monthly, 1 yearly) and the other columns recalculate.",s:"note"}]);
+    sheets.push({name:"Budget",rows:r,widths:[11,24,13,13,12,13,13,13,14]})}
+  if(rLed.checked){const r=[[{v:"Ledger · "+scope,s:"title"}],sub,[],[H("Date"),H("Type"),H("Category"),H("Note"),H("Account"),H("To account"),H("Money in"),H("Money out"),H("Balance"),H("Budget left"),H("Category left")]];
+    months.forEach(m=>{const d=ledgerData(m,id);if(!isM&&!d.rows.length)return;
+      const o=r.length+1;r.push([{d:m+"-01"},B("Opening balance"),"","",scope,"","","",BM(d.open),BM(d.budSpend)]);
+      d.rows.forEach(({t,inn,out,left,cat})=>{const n=r.length+1;
+        r.push([{d:t.date},t.type,t.type==="transfer"?"Transfer":t.cat,t.desc||"",acctName(t.acct),t.to?acctName(t.to):"",inn?M(inn):"",out?M(out):"",FX(`I${n-1}+G${n}-H${n}`),left!=null?M(left):"",cat!=null?M(cat):""])});
+      const e=r.length;r.push([B("Totals "+MONTHS[+m.slice(5)-1]),"","","","","",FX(`SUM(G${o}:G${e})`,"bmoney"),FX(`SUM(H${o}:H${e})`,"bmoney"),FX(`I${e}`,"bmoney")]);r.push([])});
+    if(r.length===4)r.push(["No entries in this period."]);
+    sheets.push({name:"Ledger",rows:r,widths:[13,10,18,22,18,18,13,13,14,13,13],freeze:4})}
+  if(rBva.checked){const r=[[{v:"Budget vs actual",s:"title"}],sub,[],[H("Month"),H("Type"),H("Category"),H("Budget"),H("Actual"),H("Remaining"),H("% used")]];
+    months.forEach(m=>{const l=monthTx(m);if(!isM&&!l.length)return;const s0=r.length+1;
+      [["income","income","Income"],["expense","expenses","Expense"],["savings","savings","Savings"]].forEach(([type,g,lbl])=>{
+        const names=[...new Set([...S[g].map(i=>i.name),...l.filter(t=>t.type===type).map(t=>t.cat)])];
+        names.forEach(nm=>{const it=S[g].find(i=>i.name===nm),bud=it?yearly(it)/12:0,act=catActual(type,nm,m);if(!bud&&!act)return;const n=r.length+1;
+          r.push([MONTHS[+m.slice(5)-1]+" "+m.slice(0,4),lbl,nm,M(bud),M(act),FX(`D${n}-E${n}`),{f:`IF(D${n}=0,0,E${n}/D${n})`,s:"pct"}])})});
+      const e=r.length;r.push([B("Spending total"),"","",FX(`SUMIF(B${s0}:B${e},"<>Income",D${s0}:D${e})`,"bmoney"),FX(`SUMIF(B${s0}:B${e},"<>Income",E${s0}:E${e})`,"bmoney"),FX(`D${e+1}-E${e+1}`,"bmoney")]);r.push([])});
+    sheets.push({name:"Budget vs actual",rows:r,widths:[11,10,22,13,13,13,9],freeze:4})}
+  if(rFc.checked){const r=[[{v:"Year forecast vs actual · "+yr,s:"title"}],sub,[],[H("Month"),H("Income forecast"),H("Income actual"),H("Spending forecast"),H("Spending actual"),H("Net forecast"),H("Net actual"),H("Difference")]];
+    const fi=groupYear("income")/12,fo=(groupYear("expenses")+groupYear("savings"))/12;
+    MONTHS.forEach((mn,i)=>{const ym=yr+"-"+pad(i+1),l=monthTx(ym),has=l.length>0,n=r.length+1;
+      r.push([mn+" "+yr,M(fi),has?M(sumType(l,"income")):"",M(fo),has?M(sumType(l,"expense")+sumType(l,"savings")):"",FX(`B${n}-D${n}`),has?FX(`C${n}-E${n}`):"",has?FX(`G${n}-F${n}`):""])});
+    r.push([B("Year"),...["B","C","D","E","F","G","H"].map(c=>FX(`SUM(${c}5:${c}16)`,"bmoney"))]);
+    r.push([],[{v:"Spending includes expenses and savings. Actual columns are blank for months with no entries.",s:"note"}]);
+    sheets.push({name:"Year forecast",rows:r,widths:[11,15,14,17,16,14,13,13],freeze:4})}
+  if(rRec.checked){const r=[[{v:"Year record by category · "+yr,s:"title"}],sub,[],[H("Group"),H("Category"),...MONTHS.map(H),H("Year"),H("Avg / month")]];
+    const nowY=today.getFullYear(),mcount=yr<nowY?12:yr>nowY?1:today.getMonth()+1;
+    const L=XL.col;
+    [["expenses","Expenses"],["savings","Savings"],["income","Income"]].forEach(([g,lbl])=>{const type=TYPE[g];
+      const names=[...new Set([...S[g].map(i=>i.name),...S.tx.filter(t=>t.type===type&&t.date.slice(0,4)===String(yr)).map(t=>t.cat)])];if(!names.length)return;const s0=r.length+1;
+      names.forEach(nm=>{const n=r.length+1;r.push([lbl,nm,...MONTHS.map((_,i)=>M(catActual(type,nm,yr+"-"+pad(i+1)))),FX(`SUM(C${n}:N${n})`,"bmoney"),FX(`O${n}/${mcount}`)])});
+      const e=r.length;r.push([B("Total "+lbl.toLowerCase()),"",...Array.from({length:13},(_,k)=>FX(`SUM(${L(k+2)}${s0}:${L(k+2)}${e})`,"bmoney")),FX(`O${e+1}/${mcount}`,"bmoney")]);r.push([])});
+    sheets.push({name:"Year record",rows:r,widths:[10,22,...Array(12).fill(11),13,12],freeze:4})}
+  if(!sheets.length){printMsg.textContent="Tick at least one section to export.";return}
+  const blob=XL.book(sheets),fn="manage-my-money-"+(isM?MONTHS[+rp.month.slice(5)-1]+"-"+yr:yr)+".xlsx";
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=fn;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  printMsg.textContent="Downloaded "+fn+" with "+sheets.length+" sheet"+(sheets.length>1?"s":"")+": "+sheets.map(s=>s.name).join(", ")+".";
+}
+xlBtn.addEventListener("click",()=>{try{exportExcel()}catch(e){printMsg.textContent="Excel export failed: "+e.message}});
+
 /* ---------- tabs ---------- */
 document.querySelector("nav").addEventListener("click",e=>{const b=e.target.closest("[data-tab]");if(!b)return;ui.tab=b.dataset.tab;
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
-  ["budget","tracker","ledger","accounts","year"].forEach(t=>document.getElementById("tab-"+t).hidden=t!==ui.tab);
+  ["budget","tracker","ledger","accounts","year","reports"].forEach(t=>document.getElementById("tab-"+t).hidden=t!==ui.tab);
   if(ui.tab==="ledger")ledEntrySlot.appendChild(entryCard);if(ui.tab==="tracker")trkEntrySlot.appendChild(entryCard);
-  if(ui.tab==="tracker")renderTracker();if(ui.tab==="ledger")renderLedger();if(ui.tab==="accounts")renderAcctTable();if(ui.tab==="year")renderYear();});
+  if(ui.tab==="tracker")renderTracker();if(ui.tab==="ledger")renderLedger();if(ui.tab==="accounts")renderAcctTable();if(ui.tab==="year")renderYear();if(ui.tab==="reports")buildReport();});
 
 /* ---------- backup ---------- */
 let resetArmed=false;
