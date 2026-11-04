@@ -4,11 +4,11 @@ A simple personal budget app that runs in any browser. No sign-up, no server, no
 
 ## What it does
 
-- **Budget** – income, expenses and savings, each shown weekly, fortnightly, monthly and yearly. Enter an amount and how often it's paid; the other columns calculate automatically. The summary shows total income, expenses, savings, cash balance and % of income spent.
+- **Budget** – income, expenses and savings, each shown weekly, fortnightly, monthly, quarterly and yearly. Enter an amount and how often it's paid; the other columns calculate automatically. The summary shows total income, expenses, savings, cash balance and % of income spent.
 - **Monthly tracker** – log daily income, bills and spending by date, category and the account it was paid from or into. Entries can be edited or deleted. Each entry is added to its category's total everywhere: the Budget tab shows spent and left this month for every item, and the tracker shows budget vs actual.
 - **Ledger** – every entry for a month in date order, with money in, money out and a running balance for one account or all accounts together. A second running column shows how much of the month's forecast spending is left, and each expense shows what's left in its category. The summary includes a projected end-of-month balance.
 - **Accounts** – add and edit your bank accounts, savings, cash, credit cards and loans. Shows each account's live balance (what's owed and available credit for cards), plus totals for money held, money owed and net balance.
-- **Print** – build a report for one month or a whole year: balance sheet, budget, ledger, budget vs actual, year forecast and year record by category. Tick the sections you want, then tap **Print / Save as PDF**, or **Export to Excel** for an .xlsx file with one sheet per section and live formulas for the totals.
+- **Print** – build a report for one month, one quarter or a whole year: balance sheet, budget, ledger, budget vs actual, year forecast and year record by category. Tick the sections you want, then tap **Print / Save as PDF**, or **Export to Excel** for an .xlsx file with one sheet per section and live formulas for the totals.
 - **Transfers** – use the "Transfer between accounts" entry type for credit card payments or moving money to savings. Both balances update and it isn't counted as spending.
 - **Year forecast** – a January to December table and chart comparing your budget forecast with actual figures from the tracker, plus a year record of every category's total for each month.
 
