@@ -105,6 +105,9 @@ td.acc{text-align:left;white-space:normal;min-width:110px}
 .pill.transfer{color:var(--accent)}
 .stats.three{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .acts{white-space:nowrap}
+#recCard{scroll-margin-top:130px}
+#recList input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
+.kv b.neg{color:var(--bad)} .kv b.pos{color:var(--good)}
 table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-index:1}
 .mlink{border:0;background:none;font:inherit;color:var(--accent);cursor:pointer;text-decoration:underline;text-transform:inherit;letter-spacing:inherit;padding:0}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .3s}}
@@ -120,7 +123,7 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
 .report .acts,.report .mlink{pointer-events:none}
 .report .mlink{color:inherit;text-decoration:none}
 .report td.acts,.report th:last-child:empty{display:none}
-.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 16px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 16px}
 .kv div{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
 .kv b{display:block;font-size:1.05rem;font-variant-numeric:tabular-nums}
 .kv span{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
@@ -149,7 +152,7 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
 </head>
 <body>
 <header><div class="wrap">
-  <div class="head"><h1>Manage <span>My Money</span></h1><span class="status"><span id="status">Loading…</span><br><span id="appVer">Version 6 · 5 Nov 2026</span></span></div>
+  <div class="head"><h1>Manage <span>My Money</span></h1><span class="status"><span id="status">Loading…</span><br><span id="appVer">Version 7 · 5 Nov 2026</span></span></div>
   <nav role="tablist">
     <button role="tab" data-tab="budget" aria-selected="true">Budget</button>
     <button role="tab" data-tab="tracker" aria-selected="false">Monthly tracker</button>
@@ -245,16 +248,36 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
 
 <!-- ACCOUNTS -->
 <section class="panel" id="tab-accounts" hidden>
-  <h2>Accounts</h2>
+  <div class="row"><h2>Accounts</h2><button class="btn ghost" id="addAcct2" type="button">+ Add account</button></div>
   <div class="card"><div class="stats three">
     <div class="stat"><h3>Money in accounts</h3><div class="v" id="aCash"></div></div>
-    <div class="stat"><h3>Owed on cards &amp; loans</h3><div class="v" id="aOwed"></div></div>
+    <div class="stat"><h3>Owed (cards, pay later, loans)</h3><div class="v" id="aOwed"></div></div>
     <div class="stat"><h3>Net balance</h3><div class="v" id="aNet"></div></div>
   </div></div>
   <div class="acct-grid" id="acctCards"></div>
+  <div class="card" id="recCard">
+    <h2 style="margin-bottom:6px" id="recTitle">Reconcile an account</h2>
+    <p class="note" style="margin-bottom:12px">Check the app against your statement or banking app. Enter the statement date and balance, then tick each entry that appears on the statement. When the difference is $0.00 the account is reconciled.</p>
+    <div class="form">
+      <label>Account<select id="recAcct"></select></label>
+      <label>Statement date<input type="date" id="recDate"></label>
+      <label><span id="recBalLbl">Statement balance</span><input type="number" step="0.01" inputmode="decimal" id="recBal" placeholder="0.00"></label>
+    </div>
+    <div id="recStats" style="margin-top:12px"></div>
+    <div class="scroll" id="recList" style="margin-top:10px"></div>
+    <div class="row" style="margin-top:12px;justify-content:flex-start;gap:8px">
+      <button class="btn" type="button" id="recFinish">Finish reconciliation</button>
+      <button class="btn ghost" type="button" id="recAll">Tick all</button>
+      <button class="btn ghost" type="button" id="recAdjust" hidden>Add adjustment for difference</button>
+      <button class="btn ghost" type="button" id="recCancel" hidden>Cancel edit</button>
+    </div>
+    <p class="note" id="recMsg" style="margin-top:10px" aria-live="polite"></p>
+    <h3 style="margin:16px 0 8px">Reconciliation history</h3>
+    <div class="scroll" id="recHist"></div>
+  </div>
   <div class="card"><div class="row" style="margin-bottom:10px"><h2>Manage accounts</h2><button class="btn ghost" id="addAcct" type="button">+ Add account</button></div>
     <div class="scroll" id="acctTable"></div>
-    <p class="note" id="acctMsg" style="margin-top:10px" aria-live="polite">Starting balance is what the account held before your first entry. For a credit card or loan, enter what you owe as a minus, e.g. -450. Limit is optional.</p></div>
+    <p class="note" id="acctMsg" style="margin-top:10px" aria-live="polite">Starting balance is what the account held before your first entry. For a credit card, pay later account (Afterpay, Zip) or loan, enter what you owe as a minus, e.g. -450. Limit is optional.</p></div>
 </section>
 
 <!-- REPORTS -->
@@ -307,13 +330,16 @@ const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov",
 const GROUPS={income:"Monthly income",expenses:"Monthly expenses",savings:"Monthly savings"};
 const TYPE={income:"income",expenses:"expense",savings:"savings"};
 const curLabel=MONTHS[new Date().getMonth()];
-const KINDS={bank:"Bank",savings:"Savings",cash:"Cash",card:"Credit card",loan:"Loan"};
-const isDebt=k=>k==="card"||k==="loan";
+const KINDS={bank:"Bank",savings:"Savings",cash:"Cash",wallet:"Digital wallet",card:"Credit card",bnpl:"Buy now pay later",loan:"Loan"};
+const isDebt=k=>k==="card"||k==="loan"||k==="bnpl";
+const PRESET=[["Cash","cash"],["Bank","bank"],["Savings","savings"],["PayPal","wallet"],["Afterpay","bnpl"],["Zip Pay","bnpl"],["Zip Plus","bnpl"],["Revolut","bank"],["ANZ","bank"],["ANZ Saving","savings"]];
+function nextDay(ds){const [y,m,d]=ds.split("-").map(Number),n=new Date(y,m-1,d+1);return n.getFullYear()+"-"+pad(n.getMonth()+1)+"-"+pad(n.getDate())}
 const uid=()=>Math.random().toString(36).slice(2,9);
 const money=new Intl.NumberFormat("en-AU",{style:"currency",currency:"AUD",minimumFractionDigits:2});
 const fm=v=>money.format(Math.round(v*100)/100||0);
 const today=new Date();const pad=n=>String(n).padStart(2,"0");
 const curMonth=today.getFullYear()+"-"+pad(today.getMonth()+1);
+const todayISO=today.getFullYear()+"-"+pad(today.getMonth()+1)+"-"+pad(today.getDate());
 
 function seed(){
   const it=(name,amount,freq="month")=>({id:uid(),name,amount,freq});
@@ -322,11 +348,11 @@ function seed(){
     expenses:[it("Rent/mortgage",500),it("Electric",150),it("Gas",225),it("Cell phone",200),it("Groceries",500),it("Fuel",200),it("Car payment",275),it("Credit cards",120),it("Auto insurance",300),it("Water",100),it("Miscellaneous",100),it("Car finance",1325)],
     savings:[],tx:[]};
 }
-function migrate(d){d.savings=d.savings||[];d.tx=d.tx||[];
-  if(!Array.isArray(d.accounts)||!d.accounts.length)d.accounts=[
-    {id:uid(),name:"Everyday account",kind:"bank",opening:0,limit:0},
-    {id:uid(),name:"Credit card",kind:"card",opening:0,limit:0}];
-  const first=d.accounts[0].id;d.tx.forEach(t=>{if(!t.acct)t.acct=first;if(t.to===undefined)t.to=""});
+function migrate(d){d.savings=d.savings||[];d.tx=d.tx||[];d.recs=d.recs||[];
+  if(!Array.isArray(d.accounts))d.accounts=[];
+  if(!d.presetV1){PRESET.forEach(([n,k])=>{if(!d.accounts.some(a=>a.name.trim().toLowerCase()===n.toLowerCase()))d.accounts.push({id:uid(),name:n,kind:k,opening:0,limit:0})});d.presetV1=1}
+  if(!d.accounts.length)d.accounts.push({id:uid(),name:"Cash",kind:"cash",opening:0,limit:0});
+  const first=d.accounts[0].id;d.tx.forEach(t=>{if(!t.acct)t.acct=first;if(t.to===undefined)t.to="";if(!Array.isArray(t.clr))t.clr=[]});
   return d}
 let S=null;
 try{const r=localStorage.getItem("mmm-budget");if(r)S=JSON.parse(r)}catch(e){}
@@ -469,8 +495,8 @@ txForm.addEventListener("submit",e=>{e.preventDefault();const amt=parseFloat(txA
   if(hasTo&&txTo.value===txAcct.value){txMsg.textContent="The from and to accounts must be different.";return}
   const rec={date:txDate.value,type,cat:type==="transfer"?"Transfer":txCat.value,desc:txDesc.value.trim(),amt,acct:txAcct.value,to:hasTo?txTo.value:""};
   let msg;
-  if(editing){const t=S.tx.find(x=>x.id===editing);if(t)Object.assign(t,rec);endEdit();msg="Saved changes to the "+fm(amt)+" entry."}
-  else{S.tx.push({id:uid(),...rec});
+  if(editing){const t=S.tx.find(x=>x.id===editing);if(t){Object.assign(t,rec);t.clr=(t.clr||[]).filter(x=>x===rec.acct||x===rec.to)}endEdit();msg="Saved changes to the "+fm(amt)+" entry."}
+  else{S.tx.push({id:uid(),...rec,clr:[]});
     msg=type==="transfer"?"Moved "+fm(amt)+" from "+acctName(rec.acct)+" to "+acctName(rec.to)+".":
       "Added "+fm(amt)+" to "+rec.cat+(type==="income"?", paid into ":", paid from ")+acctName(rec.acct)+"."}
   ui.month=txDate.value.slice(0,7);txAmt.value="";txDesc.value="";renderAll();save();
@@ -566,7 +592,7 @@ function renderLedger(){
     const catLine=t.type==="transfer"?"Transfer":`${esc(t.cat)}`;
     const catLeft=f.cat!=null?`<small class="${f.cat<0?"neg":""}">${fm(f.cat)} left in ${esc(t.cat)}</small>`:"";
     return `<tr><td>${+t.date.slice(8)} ${MONTHS[+t.date.slice(5,7)-1]}</td>
-      <td class="details"><span class="pill ${t.type}">${t.type}</span> ${esc(t.desc||"")||catLine}<small>${t.desc?catLine:""}</small>${catLeft}</td>
+      <td class="details"><span class="pill ${t.type}">${t.type}</span> ${esc(t.desc||"")||catLine}<small>${t.desc?catLine:""}</small>${catLeft}${(id?isClr(t,id):(t.clr||[]).length)?'<small class="pos">✓ Reconciled</small>':""}</td>
       <td class="acc">${acctCell(t)}</td>
       <td class="pos">${inn?fm(inn):(t.type==="transfer"&&id==null?"⇄":"")}</td><td>${out?fm(out):""}</td>
       <td class="${bal<0?"neg":""}"><b>${fm(bal)}</b></td>
@@ -594,9 +620,9 @@ function renderAcctCards(){let cash=0,owed=0;const mt=monthTx(curMonth);
     const lim=+a.limit||0,avail=debt&&lim?` · ${fm(lim+b)} available of ${fm(lim)}`:"";
     const big=debt?fm(Math.abs(b)):fm(b),lbl=debt?(b<0?"Owed":b>0?"In credit":"Nothing owed"):"Balance";
     return `<div class="card acct"><div class="row" style="align-items:flex-start"><div style="min-width:0"><h3>${KINDS[a.kind]||"Account"}</h3><div class="aname">${esc(a.name)}</div></div>
-      <button class="btn ghost sm" type="button" data-led="${a.id}">Ledger</button></div>
+      <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn ghost sm" type="button" data-rec="${a.id}">Reconcile</button><button class="btn ghost sm" type="button" data-led="${a.id}">Ledger</button></div></div>
       <div class="abal ${(debt?b<0:b<0)?"neg":""}">${big}</div><div class="note">${lbl}${avail}</div>
-      <div class="note">${curLabel}: in ${fm(inn)} · out ${fm(out)}</div></div>`}).join("")||'<div class="empty">No accounts yet. Tap “Add account” below.</div>';
+      <div class="note">${curLabel}: in ${fm(inn)} · out ${fm(out)}</div>${(()=>{const lr=lastRec(a.id);return lr?`<div class="note ${lr.diff?"neg":"pos"}">${lr.diff?"Reconciled with "+fm(Math.abs(lr.diff))+" difference":"✓ Reconciled"} to ${+lr.date.slice(8)} ${MONTHS[+lr.date.slice(5,7)-1]} ${lr.date.slice(0,4)}</div>`:'<div class="note">Not reconciled yet</div>'})()}</div>`}).join("")||'<div class="empty">No accounts yet. Tap “Add account” below.</div>';
   aCash.textContent=fm(cash);aOwed.textContent=fm(owed);aOwed.className="v "+(owed>0?"neg":"");
   aNet.textContent=fm(cash-owed);aNet.className="v "+(cash-owed<0?"neg":"pos");
   S.accounts.forEach(a=>{const c=document.querySelector(`#acctTable [data-bal="${a.id}"]`);if(c){const b=balance(a.id);c.textContent=fm(b);c.className=b<0?"neg":""}});
@@ -623,8 +649,71 @@ acctTable.addEventListener("click",e=>{const b=e.target.closest("[data-adel]");i
   S.accounts=S.accounts.filter(x=>x.id!==a.id);renderAcctTable();fillAccts();save();acctMsg.textContent=`Removed ${a.name}.`});
 addAcct.addEventListener("click",()=>{const a={id:uid(),name:"New account",kind:"bank",opening:0,limit:0};S.accounts.push(a);renderAcctTable();fillAccts();save();
   const el=document.getElementById("an-"+a.id);el&&(el.focus(),el.select())});
-acctCards.addEventListener("click",e=>{const b=e.target.closest("[data-led]");if(!b)return;ui.ledAcct=b.dataset.led;ui.month=curMonth;
+addAcct2.addEventListener("click",()=>{addAcct.click()});
+acctCards.addEventListener("click",e=>{const r=e.target.closest("[data-rec]");
+  if(r){recEditing=null;recAcct.value=r.dataset.rec;recBal.value="";recDate.value=todayISO;renderRec();recCard.scrollIntoView({behavior:"smooth",block:"start"});recBal.focus({preventScroll:true});return}
+  const b=e.target.closest("[data-led]");if(!b)return;ui.ledAcct=b.dataset.led;ui.month=curMonth;
   document.querySelector('nav [data-tab="ledger"]').click();window.scrollTo(0,0)});
+
+/* ---------- reconcile ---------- */
+let recEditing=null,recArmed=false,recDelArmed=null;
+const isClr=(t,id)=>(t.clr||[]).includes(id);
+function lastRec(id,excl){return S.recs.filter(r=>r.acct===id&&r.id!==excl).sort((a,b)=>b.date.localeCompare(a.date))[0]}
+function clearedBal(id,date){return opening(id)+S.tx.filter(t=>t.date<=date&&isClr(t,id)).reduce((s,t)=>s+eff(t,id),0)}
+function recState(){const a=S.accounts.find(x=>x.id===recAcct.value);if(!a)return null;const debt=isDebt(a.kind),date=recDate.value||todayISO;
+  const v=parseFloat(recBal.value),st=isNaN(v)?null:(debt?-v:v),cb=clearedBal(a.id,date);
+  return {a,debt,date,st,cb,diff:st==null?null:Math.round((st-cb)*100)/100,show:x=>fm(debt?-x:x)}}
+function renderRec(){
+  const cur=recAcct.value;recAcct.innerHTML=S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
+  recAcct.value=S.accounts.some(a=>a.id===cur)?cur:(S.accounts[0]||{}).id||"";if(!recDate.value)recDate.value=todayISO;
+  const R=recState();if(!R){recList.innerHTML="";recStats.innerHTML="";return}
+  const {a,debt,date,st,cb,diff,show}=R;
+  recBalLbl.textContent=debt?"Amount owed on statement":"Statement balance";
+  recTitle.textContent=recEditing?"Edit reconciliation":"Reconcile an account";
+  const prev=lastRec(a.id,recEditing);
+  const list=S.tx.map((t,i)=>({t,i})).filter(({t})=>(t.acct===a.id||t.to===a.id)&&t.date<=date&&(!isClr(t,a.id)||!prev||t.date>prev.date))
+    .sort((x,y)=>x.t.date.localeCompare(y.t.date)||x.i-y.i);
+  const bal=balance(a.id,nextDay(date));
+  recStats.innerHTML=kv([["Statement",st==null?"—":show(st)],["Ticked entries",show(cb)],["Difference",diff==null?"—":(diff===0?"$0.00 ✓":fm(Math.abs(diff))),diff==null?"":diff===0?"pos":"neg"],["All entries to this date",show(bal)]]);
+  recList.innerHTML=list.length?`<table><thead><tr><th>✓</th><th>Date</th><th>Details</th><th>Money in</th><th>Money out</th></tr></thead><tbody>${list.map(({t})=>{const e=eff(t,a.id);
+    return `<tr><td><input type="checkbox" data-clr="${t.id}" id="clr-${t.id}"${isClr(t,a.id)?" checked":""} aria-label="Ticked off on statement"></td><td>${+t.date.slice(8)} ${MONTHS[+t.date.slice(5,7)-1]}</td>
+    <td class="details"><label for="clr-${t.id}">${esc(t.desc||t.cat)}<small>${t.type==="transfer"?esc(acctName(t.acct))+" → "+esc(acctName(t.to)):esc(t.cat)}</small></label></td>
+    <td class="pos">${e>0?fm(e):""}</td><td>${e<0?fm(-e):""}</td></tr>`}).join("")}</tbody></table>`
+    :`<div class="empty">No entries for ${esc(a.name)} up to ${+date.slice(8)} ${MONTHS[+date.slice(5,7)-1]}${prev?" since the last reconciliation":""}. If the statement has transactions, add them as entries first.</div>`;
+  recAdjust.hidden=!(diff!=null&&diff!==0);recCancel.hidden=!recEditing;
+  recFinish.textContent=recArmed?"Finish with "+fm(Math.abs(diff||0))+" difference":recEditing?"Save changes":"Finish reconciliation";
+  if(!recMsg.dataset.keep)recMsg.textContent=st==null?"Enter the balance shown on your statement.":diff===0?"Balanced. Tap Finish to record it."
+    :`The statement shows ${show(st)} but your ticked entries come to ${show(cb)}. Tick any missing entries, add the missing transactions, or add an adjustment.`;
+  delete recMsg.dataset.keep;
+  recHist.innerHTML=S.recs.length?`<table><thead><tr><th>Statement date</th><th>Account</th><th>Statement balance</th><th>Difference</th><th>Status</th><th></th></tr></thead><tbody>${
+    [...S.recs].sort((x,y)=>y.date.localeCompare(x.date)).map(r=>{const ac=S.accounts.find(x=>x.id===r.acct),d=ac&&isDebt(ac.kind);
+      return `<tr><td>${+r.date.slice(8)} ${MONTHS[+r.date.slice(5,7)-1]} ${r.date.slice(0,4)}</td><td class="acc">${esc(acctName(r.acct))}</td><td>${fm(d?-r.stmt:r.stmt)}${d?" owed":""}</td>
+      <td class="${r.diff?"neg":""}">${fm(Math.abs(r.diff))}</td><td class="${r.diff?"neg":"pos"}" style="text-align:left">${r.diff?"Difference left":"✓ Balanced"}</td>
+      <td class="acts"><button class="x" type="button" data-redit="${r.id}" aria-label="Edit reconciliation">✎</button><button class="x" type="button" data-rdel="${r.id}" aria-label="Delete reconciliation">${recDelArmed===r.id?"Delete?":"×"}</button></td></tr>`}).join("")}</tbody></table>`
+    :'<p class="note">No reconciliations yet. Your finished reconciliations will be listed here, and you can edit or delete them.</p>';
+}
+[recAcct,recDate].forEach(el=>el.addEventListener("change",()=>{recArmed=false;renderRec()}));
+recBal.addEventListener("input",()=>{recArmed=false;renderRec()});
+recList.addEventListener("change",e=>{const c=e.target.closest("[data-clr]");if(!c)return;const t=S.tx.find(x=>x.id===c.dataset.clr),id=recAcct.value;if(!t)return;
+  t.clr=(t.clr||[]).filter(x=>x!==id);if(c.checked)t.clr.push(id);recArmed=false;save();renderRec()});
+recAll.addEventListener("click",()=>{const id=recAcct.value;recList.querySelectorAll("[data-clr]").forEach(c=>{const t=S.tx.find(x=>x.id===c.dataset.clr);if(t&&!isClr(t,id))(t.clr=t.clr||[]).push(id)});recArmed=false;save();renderRec()});
+recAdjust.addEventListener("click",()=>{const R=recState();if(!R||!R.diff)return;
+  S.tx.push({id:uid(),date:R.date,type:R.diff>0?"income":"expense",cat:"Reconciliation adjustment",desc:"Reconciliation adjustment",amt:Math.abs(R.diff),acct:R.a.id,to:"",clr:[R.a.id]});
+  save();recArmed=false;renderAll();recMsg.dataset.keep=1;recMsg.textContent=`Added a ${fm(Math.abs(R.diff))} adjustment to ${R.a.name}. It's ticked, so the difference is now $0.00.`;renderRec()});
+recFinish.addEventListener("click",()=>{const R=recState();if(!R)return;
+  if(R.st==null){recMsg.textContent="Enter the statement balance first.";recBal.focus();return}
+  if(R.diff!==0&&!recArmed){recArmed=true;recMsg.dataset.keep=1;recMsg.textContent=`There's still a ${fm(Math.abs(R.diff))} difference. Tap again to record it anyway, or tick entries or add an adjustment first.`;renderRec();return}
+  const rec={acct:R.a.id,date:R.date,stmt:R.st,diff:R.diff,at:todayISO};
+  if(recEditing){const r=S.recs.find(x=>x.id===recEditing);if(r)Object.assign(r,rec)}else S.recs.push({id:uid(),...rec});
+  const was=!!recEditing;recEditing=null;recArmed=false;recBal.value="";save();renderAcctCards();
+  recMsg.dataset.keep=1;recMsg.textContent=`${was?"Updated":"Recorded"} the ${R.a.name} reconciliation to ${+R.date.slice(8)} ${MONTHS[+R.date.slice(5,7)-1]}${R.diff?" with a "+fm(Math.abs(R.diff))+" difference":", balanced"}.`;renderRec()});
+recCancel.addEventListener("click",()=>{recEditing=null;recArmed=false;recBal.value="";recMsg.dataset.keep=1;recMsg.textContent="Edit cancelled.";renderRec()});
+recHist.addEventListener("click",e=>{const ed=e.target.closest("[data-redit]"),del=e.target.closest("[data-rdel]");
+  if(ed){const r=S.recs.find(x=>x.id===ed.dataset.redit);if(!r)return;const ac=S.accounts.find(x=>x.id===r.acct);
+    recEditing=r.id;recArmed=false;recAcct.value=r.acct;recDate.value=r.date;recBal.value=String(Math.round((ac&&isDebt(ac.kind)?-r.stmt:r.stmt)*100)/100);
+    recMsg.dataset.keep=1;recMsg.textContent="Editing this reconciliation. Change the date, balance or ticks, then tap Save changes.";renderRec();recCard.scrollIntoView({behavior:"smooth",block:"start"});return}
+  if(del){const id=del.dataset.rdel;if(recDelArmed!==id){recDelArmed=id;renderRec();setTimeout(()=>{if(recDelArmed===id){recDelArmed=null;renderRec()}},4000);return}
+    S.recs=S.recs.filter(x=>x.id!==id);recDelArmed=null;if(recEditing===id)recEditing=null;save();renderAcctCards();recMsg.dataset.keep=1;recMsg.textContent="Reconciliation deleted. Your entries and ticks are unchanged.";renderRec()}});
 
 /* ---------- reports ---------- */
 const rp={period:"month",month:curMonth,year:today.getFullYear(),q:Math.floor(today.getMonth()/3)+1,acct:""};
@@ -808,14 +897,14 @@ function exportExcel(){
     r.push(["% of income spent or saved","","","","","","",{f:`IF(${ref("income","H")}=0,0,(${ref("expenses","H")}+${ref("savings","H")})/${ref("income","H")})`,s:"pct"}]);
     r.push([],[{v:"Change Amount or Times a year (52 weekly, 26 fortnightly, 12 monthly, 4 quarterly, 1 yearly) and the other columns recalculate.",s:"note"}]);
     sheets.push({name:"Budget",rows:r,widths:[11,24,13,13,12,13,13,13,13,14]})}
-  if(rLed.checked){const r=[[{v:"Ledger · "+scope,s:"title"}],sub,[],[H("Date"),H("Type"),H("Category"),H("Note"),H("Account"),H("To account"),H("Money in"),H("Money out"),H("Balance"),H("Budget left"),H("Category left")]];
+  if(rLed.checked){const r=[[{v:"Ledger · "+scope,s:"title"}],sub,[],[H("Date"),H("Type"),H("Category"),H("Note"),H("Account"),H("To account"),H("Money in"),H("Money out"),H("Balance"),H("Budget left"),H("Category left"),H("Reconciled")]];
     months.forEach(m=>{const d=ledgerData(m,id);if(!isM&&!d.rows.length)return;
       const o=r.length+1;r.push([{d:m+"-01"},B("Opening balance"),"","",scope,"","","",BM(d.open),BM(d.budSpend)]);
       d.rows.forEach(({t,inn,out,left,cat})=>{const n=r.length+1;
-        r.push([{d:t.date},t.type,t.type==="transfer"?"Transfer":t.cat,t.desc||"",acctName(t.acct),t.to?acctName(t.to):"",inn?M(inn):"",out?M(out):"",FX(`I${n-1}+G${n}-H${n}`),left!=null?M(left):"",cat!=null?M(cat):""])});
+        r.push([{d:t.date},t.type,t.type==="transfer"?"Transfer":t.cat,t.desc||"",acctName(t.acct),t.to?acctName(t.to):"",inn?M(inn):"",out?M(out):"",FX(`I${n-1}+G${n}-H${n}`),left!=null?M(left):"",cat!=null?M(cat):"",(id?isClr(t,id):(t.clr||[]).length)?"Yes":""])});
       const e=r.length;r.push([B("Totals "+MONTHS[+m.slice(5)-1]),"","","","","",FX(`SUM(G${o}:G${e})`,"bmoney"),FX(`SUM(H${o}:H${e})`,"bmoney"),FX(`I${e}`,"bmoney")]);r.push([])});
     if(r.length===4)r.push(["No entries in this period."]);
-    sheets.push({name:"Ledger",rows:r,widths:[13,10,18,22,18,18,13,13,14,13,13],freeze:4})}
+    sheets.push({name:"Ledger",rows:r,widths:[13,10,18,22,18,18,13,13,14,13,13,11],freeze:4})}
   if(rBva.checked){const r=[[{v:"Budget vs actual",s:"title"}],sub,[],[H("Month"),H("Type"),H("Category"),H("Budget"),H("Actual"),H("Remaining"),H("% used")]];
     months.forEach(m=>{const l=monthTx(m);if(!isM&&!l.length)return;const s0=r.length+1;
       [["income","income","Income"],["expense","expenses","Expense"],["savings","savings","Savings"]].forEach(([type,g,lbl])=>{
@@ -859,7 +948,7 @@ document.querySelector("nav").addEventListener("click",e=>{const b=e.target.clos
   document.querySelectorAll("nav button").forEach(x=>x.setAttribute("aria-selected",x===b));
   ["budget","tracker","ledger","accounts","year","reports"].forEach(t=>document.getElementById("tab-"+t).hidden=t!==ui.tab);
   if(ui.tab==="ledger")ledEntrySlot.appendChild(entryCard);if(ui.tab==="tracker")trkEntrySlot.appendChild(entryCard);
-  if(ui.tab==="tracker")renderTracker();if(ui.tab==="ledger")renderLedger();if(ui.tab==="accounts")renderAcctTable();if(ui.tab==="year")renderYear();if(ui.tab==="reports")buildReport();});
+  if(ui.tab==="tracker")renderTracker();if(ui.tab==="ledger")renderLedger();if(ui.tab==="accounts"){renderAcctTable();renderRec()}if(ui.tab==="year")renderYear();if(ui.tab==="reports")buildReport();});
 
 /* ---------- backup ---------- */
 let resetArmed=false;
@@ -876,7 +965,7 @@ resetBtn.addEventListener("click",()=>{if(!resetArmed){resetArmed=true;resetBtn.
   resetArmed=false;resetBtn.textContent="Reset";S=migrate(seed());endEdit();renderAll();save();dataMsg.textContent="Reset to the starting budget. Entries and accounts were cleared."});
 
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-function renderAll(){Object.keys(GROUPS).forEach(renderGroup);renderSummary();fillAccts();renderTracker();renderLedger();renderAcctTable();renderYear()}
+function renderAll(){Object.keys(GROUPS).forEach(renderGroup);renderSummary();fillAccts();renderTracker();renderLedger();renderAcctTable();renderRec();renderYear()}
 renderAll();
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
