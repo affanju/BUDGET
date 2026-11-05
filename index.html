@@ -165,7 +165,7 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
 </head>
 <body>
 <header><div class="wrap">
-  <div class="head"><h1>Manage <span>My Money</span></h1><span class="status"><span id="status">Loading…</span><br><span id="appVer">Version 9 · 5 Nov 2026</span></span></div>
+  <div class="head"><h1>Manage <span>My Money</span></h1><span class="status"><span id="status">Loading…</span><br><span id="appVer">Version 10 · 5 Nov 2026</span></span></div>
   <nav role="tablist">
     <button role="tab" data-tab="budget" aria-selected="true">Budget</button>
     <button role="tab" data-tab="tracker" aria-selected="false">Monthly tracker</button>
@@ -216,7 +216,7 @@ table.rec td:first-child{position:sticky;left:0;background:var(--surface);z-inde
     <h3 style="margin-bottom:10px" id="entryTitle">Add an entry</h3>
     <form class="form" id="txForm">
       <label>Date<input type="date" id="txDate" required></label>
-      <label>Type<select id="txType"><option value="expense">Expense</option><option value="income">Income</option><option value="savings">Savings</option><option value="transfer">Transfer between accounts</option></select></label>
+      <label>Type<select id="txType"><option value="expense">Expense</option><option value="income">Income</option><option value="savings">Savings</option><option value="repay">Repayment (Afterpay, Zip, card)</option><option value="transfer">Transfer between accounts</option></select></label>
       <label id="lblCat">Category<select id="txCat"></select></label>
       <label><span id="acctLbl">Paid from</span><select id="txAcct" required></select></label>
       <label id="lblTo" hidden><span id="toLbl">To account</span><select id="txTo"></select></label>
@@ -454,14 +454,18 @@ document.getElementById("tab-budget").addEventListener("click",e=>{
 const monthEl=document.getElementById("month");
 function cats(type){const g=type==="income"?"income":type==="savings"?"savings":"expenses";return [...S[g].map(i=>i.name),"Other"]}
 function fillCats(){const t=txType.value,cur=txCat.value;txCat.innerHTML=cats(t).map(c=>`<option>${esc(c)}</option>`).join("");if([...txCat.options].some(o=>o.value===cur))txCat.value=cur}
-txType.addEventListener("change",()=>{fillCats();formMode()});
+txType.addEventListener("change",()=>{repArmed=false;fillCats();fillAccts();formMode()});
+let repArmed=false;
+const tLabel=t=>t.type==="transfer"&&t.cat==="Repayment"?"repayment":t.type;
 function fillAccts(){const opts=S.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join("");
-  [txAcct,txTo].forEach(sel=>{const c=sel.value;sel.innerHTML=(sel===txTo?'<option value="">None</option>':"")+opts;
+  const debts=S.accounts.filter(a=>isDebt(a.kind)),repay=txType.value==="repay";
+  const toOpts=repay&&debts.length?debts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join(""):'<option value="">None</option>'+opts;
+  [txAcct,txTo].forEach(sel=>{const c=sel.value;sel.innerHTML=sel===txTo?toOpts:opts;
     if([...sel.options].some(o=>o.value===c))sel.value=c});}
 function formMode(){const t=txType.value;
-  acctLbl.textContent={expense:"Paid from",income:"Paid into",savings:"From account",transfer:"From account"}[t];
-  lblCat.hidden=t==="transfer";lblTo.hidden=!(t==="transfer"||t==="savings");
-  toLbl.textContent=t==="savings"?"Into savings account (optional)":"To account";txTo.required=t==="transfer";}
+  acctLbl.textContent={expense:"Paid from",income:"Paid into",savings:"From account",transfer:"From account",repay:"Paid from"}[t];
+  lblCat.hidden=t==="transfer"||t==="repay";lblTo.hidden=!(t==="transfer"||t==="savings"||t==="repay");
+  toLbl.textContent=t==="savings"?"Into savings account (optional)":t==="repay"?"Paying off":"To account";txTo.required=t==="transfer"||t==="repay";}
 const acctName=id=>(S.accounts.find(a=>a.id===id)||{name:"No account"}).name;
 function acctCell(t){return t.to&&(t.type==="transfer"||t.type==="savings")?esc(acctName(t.acct))+" → "+esc(acctName(t.to)):esc(acctName(t.acct))}
 /* money effect of an entry on one account (id) or on all accounts together (id null) */
@@ -473,7 +477,7 @@ function eff(t,id){const a=+t.amt||0,on=x=>id==null||x===id;let v=0;
 function opening(id){return id==null?S.accounts.reduce((s,a)=>s+(+a.opening||0),0):+((S.accounts.find(a=>a.id===id)||{}).opening||0)}
 function balance(id,before){return opening(id)+S.tx.filter(t=>!before||t.date<before).reduce((s,t)=>s+eff(t,id),0)}
 function startEdit(id){const t=S.tx.find(x=>x.id===id);if(!t)return;editing=id;
-  txType.value=t.type;fillCats();fillAccts();formMode();
+  txType.value=tLabel(t)==="repayment"?"repay":t.type;fillCats();fillAccts();formMode();
   if(t.type!=="transfer"&&![...txCat.options].some(o=>o.value===t.cat))txCat.insertAdjacentHTML("beforeend",`<option>${esc(t.cat)}</option>`);
   if(t.type!=="transfer")txCat.value=t.cat;
   txDate.value=t.date;txAcct.value=t.acct;txTo.value=t.to||"";txDesc.value=t.desc||"";txAmt.value=t.amt;
@@ -504,21 +508,27 @@ function renderTracker(){
   });
   catTable.innerHTML=`<table><thead><tr><th>Category</th><th>Budget</th><th>Actual</th><th>Remaining</th><th>Used</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
   txList.innerHTML=list.length?`<table><thead><tr><th>Date</th><th>Type</th><th>Category</th><th>Note</th><th>Account</th><th>Amount</th><th></th></tr></thead><tbody>${
-    list.map(t=>`<tr><td>${+t.date.slice(8)} ${MONTHS[+t.date.slice(5,7)-1]}</td><td><span class="pill ${t.type}">${t.type}</span></td><td style="text-align:left">${esc(t.cat)}</td><td style="text-align:left">${esc(t.desc||"")}</td><td class="acc">${acctCell(t)}</td>
+    list.map(t=>`<tr><td>${+t.date.slice(8)} ${MONTHS[+t.date.slice(5,7)-1]}</td><td><span class="pill ${t.type}">${tLabel(t)}</span></td><td style="text-align:left">${esc(t.cat)}</td><td style="text-align:left">${esc(t.desc||"")}</td><td class="acc">${acctCell(t)}</td>
     <td class="${t.type==="income"?"pos":""}">${t.type==="income"?"+":t.type==="transfer"?"⇄ ":"−"}${fm(t.amt)}</td><td class="acts"><button class="x" data-edit="${t.id}" aria-label="Edit entry">✎</button><button class="x" data-tx="${t.id}" aria-label="Delete entry">×</button></td></tr>`).join("")}</tbody></table>`
     :`<div class="empty">No entries for ${MONTHS[m-1]} ${y} yet. Add your pay, bills and spending above as they happen and the totals, budget comparison and year view update straight away.</div>`;
 }
 monthEl.addEventListener("change",()=>{if(monthEl.value){ui.month=monthEl.value;renderTracker()}});
 txForm.addEventListener("submit",e=>{e.preventDefault();const amt=parseFloat(txAmt.value);if(!(amt>0)||!txDate.value)return;
-  const type=txType.value,hasTo=type==="transfer"||type==="savings";
+  const ut=txType.value,isRepay=ut==="repay",type=isRepay?"transfer":ut,hasTo=type==="transfer"||type==="savings";
+  if(ut==="expense"&&!repArmed){const from=S.accounts.find(a=>a.id===txAcct.value),txt=(txCat.value+" "+txDesc.value).toLowerCase();
+    const debtNames=S.accounts.filter(a=>isDebt(a.kind)&&a.id!==txAcct.value).map(a=>a.name.toLowerCase());
+    if(/repay|pay ?off|instal+ment|card payment/.test(txt)||debtNames.some(n=>n&&txt.includes(n))||(from&&isDebt(from.kind)&&/repay|payment/.test(txt))){
+      repArmed=true;txMsg.textContent="This looks like a repayment. To bring an Afterpay, Zip or card balance down, choose Type → Repayment. Tap "+txSubmit.textContent+" again to save it as an expense anyway.";return}}
+  repArmed=false;
   if(!txAcct.value){txMsg.textContent="Add an account on the Accounts tab first.";return}
   if(type==="transfer"&&(!txTo.value||txTo.value===txAcct.value)){txMsg.textContent="Choose two different accounts for a transfer.";return}
   if(hasTo&&txTo.value===txAcct.value){txMsg.textContent="The from and to accounts must be different.";return}
-  const rec={date:txDate.value,type,cat:type==="transfer"?"Transfer":txCat.value,desc:txDesc.value.trim(),amt,acct:txAcct.value,to:hasTo?txTo.value:""};
+  const rec={date:txDate.value,type,cat:isRepay?"Repayment":type==="transfer"?"Transfer":txCat.value,desc:txDesc.value.trim()||(isRepay?"Repayment":""),amt,acct:txAcct.value,to:hasTo?txTo.value:""};
   let msg;
   if(editing){const t=S.tx.find(x=>x.id===editing);if(t){Object.assign(t,rec);t.clr=(t.clr||[]).filter(x=>x===rec.acct||x===rec.to)}endEdit();msg="Saved changes to the "+fm(amt)+" entry."}
   else{S.tx.push({id:uid(),...rec,clr:[]});
-    msg=type==="transfer"?"Moved "+fm(amt)+" from "+acctName(rec.acct)+" to "+acctName(rec.to)+".":
+    msg=isRepay?(()=>{const b=balance(rec.to);return "Paid "+fm(amt)+" off "+acctName(rec.to)+" from "+acctName(rec.acct)+". "+acctName(rec.to)+(b<0?" now owes "+fm(-b)+".":" is now paid off.")})():
+      type==="transfer"?"Moved "+fm(amt)+" from "+acctName(rec.acct)+" to "+acctName(rec.to)+".":
       "Added "+fm(amt)+" to "+rec.cat+(type==="income"?", paid into ":", paid from ")+acctName(rec.acct)+"."}
   ui.month=txDate.value.slice(0,7);txAmt.value="";txDesc.value="";renderAll();save();
   txMsg.textContent=msg;txAmt.focus({preventScroll:true})});
@@ -613,7 +623,7 @@ function renderLedger(){
     const catLine=t.type==="transfer"?"Transfer":`${esc(t.cat)}`;
     const catLeft=f.cat!=null?`<small class="${f.cat<0?"neg":""}">${fm(f.cat)} left in ${esc(t.cat)}</small>`:"";
     return `<tr><td>${+t.date.slice(8)} ${MONTHS[+t.date.slice(5,7)-1]}</td>
-      <td class="details"><span class="pill ${t.type}">${t.type}</span> ${esc(t.desc||"")||catLine}<small>${t.desc?catLine:""}</small>${catLeft}${(id?isClr(t,id):(t.clr||[]).length)?'<small class="pos">✓ Reconciled</small>':""}</td>
+      <td class="details"><span class="pill ${t.type}">${tLabel(t)}</span> ${esc(t.desc||"")||catLine}<small>${t.desc?catLine:""}</small>${catLeft}${(id?isClr(t,id):(t.clr||[]).length)?'<small class="pos">✓ Reconciled</small>':""}</td>
       <td class="acc">${acctCell(t)}</td>
       <td class="pos">${inn?fm(inn):(t.type==="transfer"&&id==null?"⇄":"")}</td><td>${out?fm(out):""}</td>
       <td class="${bal<0?"neg":""}"><b>${fm(bal)}</b></td>
@@ -638,15 +648,17 @@ function renderAcctCards(){let cash=0,owed=0;const mt=monthTx(curMonth);
   acctCards.innerHTML=S.accounts.map(a=>{const b=balance(a.id),debt=isDebt(a.kind);
     if(b<0&&debt)owed+=-b;else cash+=b;
     let inn=0,out=0;mt.forEach(t=>{const e=eff(t,a.id);if(e>0)inn+=e;else out-=e});
-    const lim=+a.limit||0,avail=debt&&lim?`<br>${fm(lim+b)} available of ${fm(lim)} limit`:"";
-    const big=debt?fm(Math.abs(b)):fm(b),lbl=debt?(b<0?"Owed":b>0?"In credit":"Nothing owed"):"Balance";
+    const lim=+a.limit||0,avail=debt&&lim?`<br>${fm(Math.max(0,lim+Math.min(b,0)))} available of ${fm(lim)} limit`:"";
+    const big=debt?fm(Math.abs(b)):fm(b),lbl=debt?(b<0?"Owed":b>0.004?"In credit ⚠":"Nothing owed"):"Balance";
     const lr=lastRec(a.id);
     return `<details class="card acct fold" data-fold="a-${a.id}"${isOpen("a-"+a.id)?" open":""}><summary><span class="chev" aria-hidden="true">›</span>
       <div style="min-width:0"><div class="aname">${esc(a.name)}</div><div class="note">${KINDS[a.kind]||"Account"}</div></div>
       <span class="sumr ${(debt?b<0:b<0)?"neg":""}">${big}<small>${lbl}</small></span></summary>
       <div class="note">${curLabel}: in ${fm(inn)} · out ${fm(out)}${avail}</div>
+      ${debt&&b>0.004?`<div class="note neg">This shows ${fm(b)} in credit, so the app thinks the provider owes you. If you actually owe ${fm(+a.opening>0?+a.opening:b)}, tap the button below. Record future repayments with the Repayment entry type.</div>
+        ${+a.opening>0?`<div><button class="btn sm" type="button" data-flip="${a.id}">Change to ${fm(+a.opening)} owed</button></div>`:""}`:""}
       ${lr?`<div class="note ${lr.diff?"neg":"pos"}">${lr.diff?"Reconciled with "+fm(Math.abs(lr.diff))+" difference":"✓ Reconciled"} to ${+lr.date.slice(8)} ${MONTHS[+lr.date.slice(5,7)-1]} ${lr.date.slice(0,4)}</div>`:'<div class="note">Not reconciled yet</div>'}
-      <div class="row" style="gap:6px;justify-content:flex-start;margin-top:4px"><button class="btn ghost sm" type="button" data-rec="${a.id}">Reconcile</button><button class="btn ghost sm" type="button" data-led="${a.id}">Ledger</button></div></details>`}).join("")||'<div class="empty">No accounts yet. Tap “Add account” below.</div>';
+      <div class="row" style="gap:6px;justify-content:flex-start;margin-top:4px">${debt?`<button class="btn ghost sm" type="button" data-repay="${a.id}">Record repayment</button>`:""}<button class="btn ghost sm" type="button" data-rec="${a.id}">Reconcile</button><button class="btn ghost sm" type="button" data-led="${a.id}">Ledger</button></div></details>`}).join("")||'<div class="empty">No accounts yet. Tap “Add account” below.</div>';
   aCash.textContent=fm(cash);aOwed.textContent=fm(owed);aOwed.className="v "+(owed>0?"neg":"");
   aNet.textContent=fm(cash-owed);aNet.className="v "+(cash-owed<0?"neg":"pos");
   S.accounts.forEach(a=>{const c=document.querySelector(`#acctTable [data-bal="${a.id}"]`);if(c){const b=balance(a.id);c.textContent=fm(b);c.className=b<0?"neg":""}});
@@ -676,7 +688,13 @@ acctTable.addEventListener("click",e=>{const b=e.target.closest("[data-adel]");i
 addAcct.addEventListener("click",()=>{const a={id:uid(),name:"New account",kind:"bank",opening:0,limit:0};OPEN.manage=true;document.querySelector('[data-fold="manage"]').open=true;S.accounts.push(a);renderAcctTable();fillAccts();save();
   const el=document.getElementById("an-"+a.id);el&&(el.focus(),el.select())});
 addAcct2.addEventListener("click",()=>{addAcct.click();document.querySelector('[data-fold="manage"]').scrollIntoView({behavior:"smooth",block:"start"})});
-acctCards.addEventListener("click",e=>{const r=e.target.closest("[data-rec]");
+acctCards.addEventListener("click",e=>{const fl=e.target.closest("[data-flip]");
+  if(fl){const a=S.accounts.find(x=>x.id===fl.dataset.flip);if(a&&+a.opening>0){a.opening=-a.opening;save();renderAcctTable();fillAccts();renderSummary();acctMsg.textContent=`${a.name} now shows ${fm(-a.opening)} owed at the start.`}return}
+  const rp=e.target.closest("[data-repay]");
+  if(rp){document.querySelector('nav [data-tab="tracker"]').click();endEdit();txType.value="repay";repArmed=false;fillCats();fillAccts();formMode();txTo.value=rp.dataset.repay;
+    const cur=S.accounts.find(a=>a.id===txAcct.value);if(!cur||isDebt(cur.kind)){const bank=S.accounts.find(a=>!isDebt(a.kind));if(bank)txAcct.value=bank.id}
+    txMsg.textContent="Enter the repayment amount and which account paid it.";entryCard.scrollIntoView({behavior:"smooth",block:"start"});txAmt.focus({preventScroll:true});return}
+  const r=e.target.closest("[data-rec]");
   if(r){recCard.open=true;recEditing=null;recAcct.value=r.dataset.rec;recBal.value="";recDate.value=todayISO;renderRec();recCard.scrollIntoView({behavior:"smooth",block:"start"});recBal.focus({preventScroll:true});return}
   const b=e.target.closest("[data-led]");if(!b)return;ui.ledAcct=b.dataset.led;ui.month=curMonth;
   document.querySelector('nav [data-tab="ledger"]').click();window.scrollTo(0,0)});
